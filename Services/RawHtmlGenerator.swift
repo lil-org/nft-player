@@ -14,10 +14,10 @@ nonisolated enum RawHtmlGenerator {
 
     static func requiredDependencies(for script: Script) -> [PersistentArtworkDependency] {
         guard !script.kind.isNativeRenderer else { return [] }
-        var kinds = (script.additionalLibraries ?? []).filter { $0 != script.kind && $0 != .three167 }
+        var kinds = (script.additionalLibraries ?? []).filter { $0 != script.kind && $0 != .three167 && $0 != .twemoji }
         if script.kind == .html, script.value.range(of: embeddedP5Pattern, options: .regularExpression) != nil {
             kinds.append(.p5js140)
-        } else {
+        } else if script.kind != .twemoji {
             kinds.append(script.kind)
         }
         var dependencies: [PersistentArtworkDependency] = []
@@ -41,7 +41,7 @@ nonisolated enum RawHtmlGenerator {
 
         let id = token.id
         let libraryScript: (Script.Kind) -> String = { kind in
-            libraryScriptProvider?(kind) ?? Self.libScript(kind)
+            kind == .twemoji ? "" : libraryScriptProvider?(kind) ?? Self.libScript(kind)
         }
         let libScript = forceLibScript ?? libraryScript(script.kind)
         let viewport =
@@ -313,7 +313,7 @@ nonisolated enum RawHtmlGenerator {
             <head>
                 \(viewport)
                 <meta charset="utf-8"/>
-                <script>\(libScript)</script>
+                <script>window.twemoji = undefined;</script>
                 <script>\(tokenData)</script>
                 <script>\(script.value)</script>\(tuning)
                 <style type="text/css">
@@ -424,7 +424,7 @@ nonisolated enum RawHtmlGenerator {
             resolvedHTML = resolvedHTML.replacingOccurrences(of: artistTag, with: before + artistTag + after)
         }
         let additionalLibraries = (script.additionalLibraries ?? [])
-            .filter { $0 != script.kind && $0 != .three167 }
+            .filter { $0 != script.kind && $0 != .three167 && $0 != .twemoji }
             .map { "<script>\(libraryScript($0))</script>" }
             .joined(separator: "\n")
         let startupProfile = ArtBlocksRenderingStartupProfiles.startupProfile(script)
@@ -443,8 +443,10 @@ nonisolated enum RawHtmlGenerator {
             let data = try! JSONSerialization.data(withJSONObject: fields, options: [.sortedKeys])
             return "<meta name=\"artblocks-review-startup\" content=\"\(data.base64EncodedString())\">" + artworkPresentationBootstrap
         } ?? ""
-        guard !additionalLibraries.isEmpty || !bootstrap.isEmpty || !startup.isEmpty else { return resolvedHTML }
-        return insertingInHead(bootstrap + startup + additionalLibraries, into: resolvedHTML)
+        if !additionalLibraries.isEmpty || !bootstrap.isEmpty || !startup.isEmpty {
+            resolvedHTML = insertingInHead(bootstrap + startup + additionalLibraries, into: resolvedHTML)
+        }
+        return ArtworkAssetPolicy.protectHTML(resolvedHTML)
     }
 
     private static let artworkPresentationBootstrap = """
@@ -628,8 +630,8 @@ nonisolated enum RawHtmlGenerator {
         } else {
             value["hash"] = hash
         }
-        value["preferredIPFSGateway"] = "https://gateway.pinata.cloud/ipfs/"
-        value["preferredArweaveGateway"] = "https://arweave.net/"
+        value["preferredIPFSGateway"] = ""
+        value["preferredArweaveGateway"] = ""
         value["externalAssetDependencies"] = (script.externalAssetDependencies ?? []).map { dependency in
             var fields: [String: Any] = [
                 "index": dependency.index,

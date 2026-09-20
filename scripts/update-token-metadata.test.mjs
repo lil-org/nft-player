@@ -68,19 +68,19 @@ test("rejects malformed token payloads and values that the runtime cannot decode
 
 test("updates deterministically while preserving tokenCount values and absence", async (t) => {
   const items = [
-    { internal_slug: "counted", chain: "ethereum", tokenCount: 2, aspectRatio: [8, 6] },
+    { internal_slug: "counted", chain: "ethereum", tokenCount: 2, urlPrefix: "https://cdn.lil.org/", aspectRatio: [8, 6] },
     { internal_slug: "uncounted" },
     { internal_slug: "zero", tokenCount: 0, aspectRatio: [1, 1] },
   ];
   const { manifestDirectory, itemsPath } = await fixture(t, items, {
-    counted: { items: [{ id: "5" }, { id: "9", aspectRatio: [4, 3] }] },
+    counted: { items: [{ id: "5", urlSuffix: "5.png" }, { id: "9", urlSuffix: "9.png", aspectRatio: [4, 3] }] },
     uncounted: { items: [{ id: "1" }] },
     zero: { items: [] },
   });
   const tokenPath = path.join(manifestDirectory, "counted.json");
   assert.deepEqual(await updateTokenMetadata({ manifestDirectory, itemsPath }), { collections: 3, tokens: 3, updated: 3 });
   const tokenBytes = await fs.readFile(tokenPath);
-  assert.deepEqual(JSON.parse(tokenBytes), { version: 2, count: 2, ids: ["5", "9"], aspectRatio: [null, [4, 3]] });
+  assert.deepEqual(JSON.parse(tokenBytes), { version: 2, count: 2, ids: ["5", "9"], urlTemplate: { value: "id", suffix: ".png" }, aspectRatio: [null, [4, 3]] });
   const generated = await fs.readFile(itemsPath, "utf8");
   assert.deepEqual(JSON.parse(generated), [
     { ...items[0], bundledTokenCount: 2, hasUniformAspectRatio: true },
@@ -94,9 +94,9 @@ test("updates deterministically while preserving tokenCount values and absence",
 });
 
 test("rejects stale downloadable counts in write and check modes without changing files", async (t) => {
-  const item = { internal_slug: "sample", chain: "ethereum", tokenCount: 1, aspectRatio: [1, 1] };
+  const item = { internal_slug: "sample", chain: "ethereum", tokenCount: 1, urlPrefix: "https://cdn.lil.org/", aspectRatio: [1, 1] };
   const { manifestDirectory, itemsPath } = await fixture(t, [item], {
-    sample: { items: [{ id: "1" }, { id: "2" }] },
+    sample: { items: [{ id: "1", urlSuffix: "1.png" }, { id: "2", urlSuffix: "2.png" }] },
   });
   const source = await fs.readFile(itemsPath, "utf8");
   for (const check of [false, true]) {
@@ -106,7 +106,7 @@ test("rejects stale downloadable counts in write and check modes without changin
 });
 
 test("validates filtered media counts using path extensions before the first query hint", async (t) => {
-  const collection = { internal_slug: "sample", tokenCount: 4, urlPrefix: "https://example.com/" };
+  const collection = { internal_slug: "sample", tokenCount: 4, urlPrefix: "https://cdn.lil.org/" };
   const suffixes = ["1.PNG", "2?ext=%20.HTML%20", "3?ext=jpg&ext=bad", "4%2Esvg", "5.txt?ext=png", "6?ext=&ext=png", "7?EXT=png", "8?ext=+png+"];
   const payload = { items: suffixes.map((urlSuffix, id) => ({ id: String(id), urlSuffix })) };
   const { manifestDirectory, itemsPath } = await fixture(t, [collection], { sample: payload });
@@ -117,8 +117,30 @@ test("validates filtered media counts using path extensions before the first que
   await assert.rejects(updateTokenMetadata({ manifestDirectory, itemsPath }), /but 4 tokens/u);
 });
 
+test("excludes missing URLs and external media while preserving CDN and Terraforms sources", async (t) => {
+  const urls = [
+    null,
+    "https://cdn.lil.org/player/sample/1.png",
+    "https://tokens.mathcastles.xyz/terraforms/token-html/42?ext=html",
+    "https://media-proxy.artblocks.io/0xcontract/1.png",
+    "https://cdn.lil.org.example.com/1.png",
+    "http://cdn.lil.org/1.png",
+    "https://tokens.mathcastles.xyz/other/42?ext=html",
+    "https://tokens.mathcastles.xyz/terraforms/token-html/42?ext=png",
+  ];
+  const rows = urls.map((urlSuffix, id) => ({ id: String(id), ...(urlSuffix == null ? {} : { urlSuffix }) }));
+  const { manifestDirectory, itemsPath } = await fixture(t, [{
+    internal_slug: "sample", chain: "ethereum", tokenCount: 2,
+  }], { sample: { items: rows } });
+  await updateTokenMetadata({ manifestDirectory, itemsPath });
+  const payload = JSON.parse(await fs.readFile(path.join(manifestDirectory, "sample.json"), "utf8"));
+  assert.deepEqual(payload.excludedMediaIndices, [0, 3, 4, 5, 6, 7]);
+  assert.deepEqual(decodeTokenManifest(payload).items, rows);
+  await updateTokenMetadata({ manifestDirectory, itemsPath, check: true });
+});
+
 test("matches Foundation for literal percent filenames and trailing path whitespace", async (t) => {
-  const collection = { internal_slug: "sample", tokenCount: 1, urlPrefix: "https://example.com/" };
+  const collection = { internal_slug: "sample", tokenCount: 1, urlPrefix: "https://cdn.lil.org/" };
   const { manifestDirectory, itemsPath } = await fixture(t, [collection], {
     sample: { items: [{ id: "1", urlSuffix: "artwork-50%.png" }] },
   });
@@ -218,7 +240,7 @@ test("preserves mixed records, duplicate IDs, and source positions while computi
     { id: "last", urlSuffix: "3.bin" },
   ];
   const { manifestDirectory, itemsPath } = await fixture(t, [{
-    internal_slug: "sample", tokenCount: 2, urlPrefix: "https://example.com/",
+    internal_slug: "sample", tokenCount: 2, urlPrefix: "https://cdn.lil.org/",
   }], { sample: { items: rows } });
   await updateTokenMetadata({ manifestDirectory, itemsPath });
   const payload = JSON.parse(await fs.readFile(path.join(manifestDirectory, "sample.json"), "utf8"));
@@ -230,7 +252,7 @@ test("preserves mixed records, duplicate IDs, and source positions while computi
 });
 
 test("check recomputes eligibility after collection URL changes without writing", async (t) => {
-  const item = { internal_slug: "sample", tokenCount: 1, urlPrefix: "https://example.com/" };
+  const item = { internal_slug: "sample", tokenCount: 1, urlPrefix: "https://cdn.lil.org/" };
   const { manifestDirectory, itemsPath } = await fixture(t, [item], {
     sample: { items: [{ id: "1", urlSuffix: "1.png" }, { id: "2", urlSuffix: "2" }] },
   });
@@ -238,7 +260,7 @@ test("check recomputes eligibility after collection URL changes without writing"
   const tokenPath = path.join(manifestDirectory, "sample.json");
   const tokenBytes = await fs.readFile(tokenPath, "utf8");
   const catalog = JSON.parse(await fs.readFile(itemsPath, "utf8"));
-  catalog[0].urlPrefix = "https://example.com/file.png?token=";
+  catalog[0].urlPrefix = "https://cdn.lil.org/file.png?token=";
   catalog[0].tokenCount = 2;
   const catalogBytes = JSON.stringify(catalog);
   await fs.writeFile(itemsPath, catalogBytes);

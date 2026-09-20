@@ -5,6 +5,42 @@ import XCTest
 
 nonisolated final class ArtBlocksExternalDisplayTests: CollectionTokenFixtureTestCase {}
 
+private actor ExternalDisplayHTMLDownloader: DownloadableMediaDownloading {
+    private(set) var requests: [DownloadableMediaDownloadRequest] = []
+    private var pending: [UUID: CheckedContinuation<DownloadableMediaDownloadResult, Never>] = [:]
+
+    func download(_ request: DownloadableMediaDownloadRequest) async -> DownloadableMediaDownloadResult {
+        requests.append(request)
+        return await withCheckedContinuation { pending[request.id] = $0 }
+    }
+
+    func setPriority(_ priority: Float, for requestID: UUID, revision: UInt64) {}
+    func cancel(requestID: UUID) {}
+
+    func cancelAll() {
+        for (id, continuation) in pending {
+            continuation.resume(returning: .init(requestID: id, stagedURL: nil, sourceURL: nil, failure: .cancelled))
+        }
+        pending.removeAll()
+    }
+
+    func complete(_ index: Int) throws {
+        let request = requests[index]
+        let source = """
+        <html><head></head><body>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10" fill="red"/></svg>
+        <script>document.body.dataset.token = '\(request.sourceURL.lastPathComponent)'; window.fixtureRuns = 1;</script>
+        </body></html>
+        """
+        try FileManager.default.createDirectory(at: request.stagingRoot, withIntermediateDirectories: true)
+        let file = request.stagingRoot.appendingPathComponent(UUID().uuidString)
+        try source.write(to: file, atomically: true, encoding: .utf8)
+        pending.removeValue(forKey: request.id)?.resume(returning: .init(
+            requestID: request.id, stagedURL: file, sourceURL: request.sourceURL, failure: nil
+        ))
+    }
+}
+
 @MainActor
 private final class ExternalDisplayDocumentProbe: NSObject, WKScriptMessageHandler {
     var documents: [[String: Any]] = []
@@ -41,13 +77,16 @@ private final class ExternalDisplayEvaluation {
 
 @MainActor
 private final class ExternalDisplayIntegrationFixture {
-    let controller = ExternalDisplayViewController(artworkDependencyCache: JavaScriptLibraryFixtures.cache)
+    let controller: ExternalDisplayViewController
     let probe = ExternalDisplayDocumentProbe()
     let window: UIWindow
     let webView: AutoReloadingWebView
     private let previousKeyWindow: UIWindow?
 
-    init(token: GeneratedToken, size: CGSize) throws {
+    init(token: GeneratedToken, size: CGSize, mediaCache: DownloadableMediaCache = .shared) throws {
+        controller = ExternalDisplayViewController(
+            artworkDependencyCache: JavaScriptLibraryFixtures.cache, mediaCache: mediaCache
+        )
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
             .first { $0.activationState == .foregroundActive })
         previousKeyWindow = scene.windows.first { $0.isKeyWindow }
@@ -150,6 +189,25 @@ private final class ExternalDisplayIntegrationFixture {
         return try XCTUnwrap(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
     }
 
+    func htmlSnapshot() async throws -> [String: Any] {
+        let json = try await evaluate("""
+        JSON.stringify((() => {
+          const frame = document.querySelector('#tokenDocument');
+          const inner = frame?.contentDocument;
+          const rect = frame?.getBoundingClientRect();
+          return {
+            tokenId: inner?.body?.dataset.token,
+            runs: frame?.contentWindow.fixtureRuns,
+            policy: inner?.querySelector('meta[http-equiv="Content-Security-Policy"]')?.content,
+            source: frame?.getAttribute('src') || '',
+            inline: !!frame?.srcdoc,
+            width: rect?.width, height: rect?.height
+          };
+        })())
+        """)
+        return try XCTUnwrap(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+    }
+
     private func evaluate(_ source: String) async throws -> String {
         try await withCheckedThrowingContinuation { continuation in
             let operation = ExternalDisplayEvaluation { continuation.resume(with: $0) }
@@ -195,6 +253,94 @@ private final class ExternalDisplayIntegrationFixture {
 
 @MainActor
 extension ArtBlocksExternalDisplayTests {
+    func testTerraformsLoadsProtectedInlineHTMLAndSurvivesResize() async throws {
+        updateExternalDisplayToken(.empty)
+        let (cache, downloader) = try htmlCache()
+        let token = try terraformsToken(index: 0)
+        let fixture = try ExternalDisplayIntegrationFixture(
+            token: token, size: CGSize(width: 360, height: 480), mediaCache: cache
+        )
+        defer { fixture.close() }
+        try await waitUntil { await downloader.requests.count == 1 }
+        let urls = await downloader.requests.map(\.sourceURL.absoluteString)
+        XCTAssertEqual(urls, ["https://tokens.mathcastles.xyz/terraforms/token-html/\(token.id)?ext=html"])
+        try await downloader.complete(0)
+        try await waitUntil { try await fixture.htmlSnapshot()["tokenId"] as? String == token.id }
+        let initial = try await fixture.htmlSnapshot()
+        assertProtectedHTML(initial)
+        fixture.resize(to: CGSize(width: 640, height: 400))
+        try await waitUntil {
+            let resized = try await fixture.htmlSnapshot()
+            return resized["tokenId"] as? String == token.id && resized["width"] as? Double != initial["width"] as? Double
+        }
+        let resized = try await fixture.htmlSnapshot()
+        assertProtectedHTML(resized)
+        XCTAssertGreaterThan(try XCTUnwrap(resized["width"] as? Double), 0)
+        XCTAssertGreaterThan(try XCTUnwrap(resized["height"] as? Double), 0)
+        fixture.assertNoFallback()
+        let requestCount = await downloader.requests.count
+        XCTAssertEqual(requestCount, 1)
+    }
+
+    func testLateHTMLDownloadCannotReplaceNewExternalDisplayToken() async throws {
+        updateExternalDisplayToken(.empty)
+        let (cache, downloader) = try htmlCache()
+        let first = try terraformsToken(index: 0)
+        let second = try terraformsToken(index: 1)
+        let fixture = try ExternalDisplayIntegrationFixture(
+            token: first, size: CGSize(width: 360, height: 480), mediaCache: cache
+        )
+        defer { fixture.close() }
+        try await waitUntil { await downloader.requests.count == 1 }
+        updateExternalDisplayToken(second)
+        try await waitUntil { await downloader.requests.count == 2 }
+        try await downloader.complete(1)
+        try await waitUntil { try await fixture.htmlSnapshot()["tokenId"] as? String == second.id }
+        try await downloader.complete(0)
+        try await Task.sleep(for: .milliseconds(250))
+        let current = try await fixture.htmlSnapshot()
+        XCTAssertEqual(current["tokenId"] as? String, second.id)
+        assertProtectedHTML(current)
+        fixture.assertNoFallback()
+    }
+
+    private func htmlCache() throws -> (DownloadableMediaCache, ExternalDisplayHTMLDownloader) {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let downloader = ExternalDisplayHTMLDownloader()
+        let cache = DownloadableMediaCache(
+            layout: .init(cacheRoot: root.appendingPathComponent("cache"), stagingRoot: root.appendingPathComponent("staging")),
+            downloader: downloader, imageDecoder: DownloadableMediaImageDecoder(), observesMemoryWarnings: false
+        )
+        addTeardownBlock {
+            await MainActor.run { cache.cancelAllDownloads() }
+            await downloader.cancelAll()
+            try? FileManager.default.removeItem(at: root)
+        }
+        return (cache, downloader)
+    }
+
+    private func terraformsToken(index: Int) throws -> GeneratedToken {
+        let item = try XCTUnwrap(SuggestedItemsService.item(resourceName: "terraforms"))
+        return try XCTUnwrap(CollectionCatalog.generateToken(specificCollectionId: item.id, tokenIndex: index))
+    }
+
+    private func waitUntil(_ condition: () async throws -> Bool) async throws {
+        let deadline = Date().addingTimeInterval(10)
+        while Date() < deadline {
+            if (try? await condition()) == true { return }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTFail("External-display HTML did not reach the expected state")
+        throw URLError(.timedOut)
+    }
+
+    private func assertProtectedHTML(_ state: [String: Any], file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertEqual(state["policy"] as? String, ArtworkAssetPolicy.contentSecurityPolicy, file: file, line: line)
+        XCTAssertEqual(state["source"] as? String, "", file: file, line: line)
+        XCTAssertEqual(state["inline"] as? Bool, true, file: file, line: line)
+        XCTAssertEqual(state["runs"] as? Int, 1, file: file, line: line)
+    }
+
     func testControllerPreservesDirectAndCalibratedRenderingAcrossTokensAndResize() async throws {
         updateExternalDisplayToken(.empty)
         defer { updateExternalDisplayToken(.empty) }

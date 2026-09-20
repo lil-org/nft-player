@@ -56,7 +56,7 @@ actor PersistentCollectionTokenCache {
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
         configuration.timeoutIntervalForRequest = 30
         configuration.timeoutIntervalForResource = 60
-        return URLSession(configuration: configuration)
+        return ArtworkAssetPolicy.makeSession(configuration: configuration)
     }()
 
     private struct Pending {
@@ -186,6 +186,7 @@ actor PersistentCollectionTokenCache {
     }
 
     private nonisolated static func download(_ url: URL) async throws -> (data: Data, statusCode: Int) {
+        try ArtworkAssetPolicy.validateRemoteURL(url)
         let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 30)
         let (data, response) = try await session.data(for: request)
         return (data, (response as? HTTPURLResponse)?.statusCode ?? 0)

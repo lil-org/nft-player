@@ -251,9 +251,12 @@ extension ArtBlocksCatalogTests {
         XCTAssertEqual(bundled.items.map(\.urlSuffix), ["a.png", nil, nil])
         XCTAssertEqual(downloadable.items.map { $0.resolvedURLString(collection: downloadableCollection) }, [
             "https://prefix.example/a.png",
-            "https://media-proxy.artblocks.io/0xfixture/b.png",
-            "https://media-proxy.artblocks.io/0xfixture/c.png"
+            nil,
+            nil
         ])
+        for item in downloadable.items.dropFirst() {
+            XCTAssertNil(item.resolvedMedia(collection: downloadableCollection))
+        }
         XCTAssertNil(bundled.items[0].contractParameters)
         XCTAssertNil(bundled.items[0].aspectRatio)
         for encoded in [try JSONEncoder().encode(bundled.items[0]), try JSONEncoder().encode(downloadable.items[0])] {
@@ -262,6 +265,29 @@ extension ArtBlocksCatalogTests {
         }
         let restored = try BundledTokens(data: JSONEncoder().encode(bundled))
         XCTAssertEqual(restored.items.map(\.urlSuffix), bundled.items.map(\.urlSuffix))
+    }
+
+    func testDownloadableMediaWrappersProtectAssetsBeforeScripts() throws {
+        let documents = [
+            DownloadableTokenHTML.createImageHTML(imageURL: "https://cdn.lil.org/image.png"),
+            DownloadableTokenHTML.createVideoHTML(videoURL: "https://cdn.lil.org/video.mp4"),
+            DownloadableTokenHTML.createInlineHTMLDocumentHTML(
+                documentHTML: "<html><head><script>window.ready = true;</script></head></html>",
+                baseURL: "https://tokens.mathcastles.xyz/terraforms/token-html/42?ext=html"
+            ),
+        ]
+        for document in documents {
+            let policy = try XCTUnwrap(document.range(of: ArtworkAssetPolicy.contentSecurityPolicyMetaTag))
+            let script = try XCTUnwrap(document.range(of: "<script>"))
+            XCTAssertLessThan(policy.lowerBound, script.lowerBound)
+        }
+        XCTAssertEqual(documents[2].components(separatedBy: "Content-Security-Policy").count - 1, 2)
+        XCTAssertTrue(documents[2].contains(".srcdoc = documentHTML;"))
+
+        let placeholder = DownloadableTokenHTML.createHTMLDocumentPlaceholder()
+        XCTAssertTrue(placeholder.contains(ArtworkAssetPolicy.contentSecurityPolicyMetaTag))
+        XCTAssertFalse(placeholder.contains(".src ="))
+        XCTAssertFalse(placeholder.contains("src="))
     }
 
     func testTokensUseCollectionRatioAndPreserveItemOverrides() throws {
@@ -754,9 +780,10 @@ extension ArtBlocksCatalogTests {
         for (key, value) in [
             ("expectedByteCount", NSNull()), ("expectedByteCount", 0),
             ("sha256", NSNull()), ("sha256", "invalid"),
-            ("sourceURL", "http://example.test/source.js"),
-            ("sourceURL", "https://user@example.test/source.js"),
-            ("sourceURL", "https://example.test/source.js#fragment")
+            ("sourceURL", "http://cdn.lil.org/source.js"),
+            ("sourceURL", "https://user@cdn.lil.org/source.js"),
+            ("sourceURL", "https://cdn.lil.org/source.js#fragment"),
+            ("sourceURL", "https://example.test/source.js")
         ] as [(String, Any)] {
             var changed = metadata
             changed[key] = value
@@ -766,11 +793,11 @@ extension ArtBlocksCatalogTests {
             XCTAssertNil(decoded.scriptDependency, "\(key): \(value)")
         }
         var changed = metadata
-        changed["sourceURL"] = "https://example.test/pinned-source.js"
+        changed["sourceURL"] = "https://cdn.lil.org/player/scripts/pinned-source.js"
         var fields = encoded
         fields["script"] = changed
         let decoded = try JSONDecoder().decode(SuggestedItem.self, from: JSONSerialization.data(withJSONObject: fields))
-        XCTAssertEqual(decoded.scriptDependency?.remoteURL.absoluteString, "https://example.test/pinned-source.js")
+        XCTAssertEqual(decoded.scriptDependency?.remoteURL.absoluteString, "https://cdn.lil.org/player/scripts/pinned-source.js")
         XCTAssertEqual(decoded.scriptDependency?.id, item.scriptDependency?.id)
         XCTAssertEqual(decoded.scriptDependency?.sha256, item.scriptDependency?.sha256)
     }

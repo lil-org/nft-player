@@ -617,7 +617,10 @@ struct TvGeneratedTokenView: UIViewRepresentable {
             currentFallbackImageTask?.cancel()
 
             currentFallbackImageTask = Task { @MainActor [weak fallbackView] in
-                guard let (data, _) = try? await URLSession.shared.data(from: url),
+                guard ArtworkAssetPolicy.allowsRemoteURL(url),
+                      let (data, response) = try? await ArtworkAssetPolicy.cdnSession.data(from: url),
+                      let response = response as? HTTPURLResponse,
+                      (200..<300).contains(response.statusCode),
                       !Task.isCancelled,
                       let image = UIImage(data: data) else {
                     return

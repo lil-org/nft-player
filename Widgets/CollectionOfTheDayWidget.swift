@@ -102,7 +102,8 @@ nonisolated private enum CollectionWidgetTimelineFactory {
         )
 
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            try ArtworkAssetPolicy.validateRemoteURL(imageReference.url)
+            let (data, response) = try await ArtworkAssetPolicy.cdnSession.data(for: request)
             guard isSuccessfulImageResponse(response),
                   let imageData = await CollectionOfTheDayWidgetData.preparedWidgetImageData(
                     data,

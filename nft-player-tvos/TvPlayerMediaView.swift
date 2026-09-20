@@ -451,7 +451,7 @@ struct TvPlayerMediaView: View {
     }
 
     private func fallbackURL(for token: GeneratedToken) -> URL? {
-        artBlocksMediaProxyFallbackURL(for: token)
+        fallbackURL(for: token, descriptor: nil)
     }
 
     private func fallbackURL(
@@ -461,13 +461,38 @@ struct TvPlayerMediaView: View {
         if let imageURL = directlyDecodableImageFallbackURL(for: descriptor) {
             return imageURL
         }
-        return ethereumArtBlocksMediaProxyFallbackURL(for: token)
+
+        let collectionId = context?.collectionId ?? token.fullCollectionId
+        guard let collection = SuggestedItemsService.item(id: collectionId),
+              collection.hasMid != false else {
+            return nil
+        }
+        if let descriptor {
+            return CollectionBrowseImageURLMapping.downloadableMidURL(
+                for: descriptor.url,
+                standardThumbsPathsAvailable: collection.standardThumbsPathsAvailable == true,
+                standardThumbsBaseURL: collection.standardThumbsBaseURL
+            )
+        }
+        guard let script = collection.script, !script.kind.isNativeRenderer else {
+            return nil
+        }
+        let sourceIndex = context?.tokenIndex ?? CollectionCatalog.tokenIndex(
+            specificCollectionId: collectionId,
+            tokenId: token.id
+        )
+        return CollectionBrowseImageURLMapping.generativeMidURL(
+            slug: collection.internalSlug,
+            sourceIndex: sourceIndex
+        )
     }
 
     private func directlyDecodableImageFallbackURL(
         for descriptor: CollectionCatalogDownloadableMediaDescriptor?
     ) -> URL? {
-        guard let descriptor else { return nil }
+        guard let descriptor, ArtworkAssetPolicy.allowsRemoteURL(descriptor.url) else {
+            return nil
+        }
 
         switch descriptor.media {
         case .staticImage, .animatedImage:
@@ -475,21 +500,6 @@ struct TvPlayerMediaView: View {
         case .video, .html:
             return nil
         }
-    }
-
-    private func artBlocksMediaProxyFallbackURL(for token: GeneratedToken) -> URL? {
-        URL(string: "https://media-proxy.artblocks.io/\(token.address)/\(token.id).png")
-    }
-
-    private func ethereumArtBlocksMediaProxyFallbackURL(for token: GeneratedToken) -> URL? {
-        let address = token.address.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard address.lowercased().hasPrefix("0x"),
-              address.count == 42,
-              !token.id.isEmpty else {
-            return nil
-        }
-
-        return URL(string: "https://media-proxy.artblocks.io/\(address)/\(token.id).png")
     }
 }
 

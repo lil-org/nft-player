@@ -28,7 +28,7 @@ actor PersistentCollectionCoverCache {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.urlCache = nil
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
-        return URLSession(configuration: configuration)
+        return ArtworkAssetPolicy.makeSession(configuration: configuration)
     }()
 
     private struct Waiter {
@@ -206,6 +206,7 @@ actor PersistentCollectionCoverCache {
     }
 
     private nonisolated static func download(_ url: URL) async throws -> (data: Data, statusCode: Int) {
+        try ArtworkAssetPolicy.validateRemoteURL(url)
         let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 30)
         let (data, response) = try await session.data(for: request)
         return (data, (response as? HTTPURLResponse)?.statusCode ?? 0)

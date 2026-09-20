@@ -62,7 +62,7 @@ actor PersistentArtworkDependencyCache {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.urlCache = nil
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
-        return URLSession(configuration: configuration)
+        return ArtworkAssetPolicy.makeSession(configuration: configuration)
     }()
 
     private struct Pending {
@@ -165,6 +165,7 @@ actor PersistentArtworkDependencyCache {
     }
 
     private nonisolated static func download(_ url: URL) async throws -> (data: Data, statusCode: Int) {
+        try ArtworkAssetPolicy.validateRemoteURL(url)
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 60)
         request.httpMethod = "GET"
         let (data, response) = try await session.data(for: request)
@@ -207,7 +208,8 @@ actor PersistentArtworkDependencyCache {
     }
 
     private nonisolated static func validateDescriptor(_ dependency: PersistentArtworkDependency) throws {
-        guard dependency.expectedByteCount > 0,
+        guard ArtworkAssetPolicy.allowsRemoteURL(dependency.remoteURL),
+              dependency.expectedByteCount > 0,
               dependency.sha256.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil else { throw Failure.invalidDescriptor }
     }
 

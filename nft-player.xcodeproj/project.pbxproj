@@ -262,6 +262,7 @@
 		2EAB40000000000000000001 /* ArtBlocksRenderingResizeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAB40000000000000000002 /* ArtBlocksRenderingResizeTests.swift */; };
 		C1BDBDFCA2E97F4F5302E0A0 /* ArtBlocksRenderingNetworkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84FF8ACB6B6F36AAF544C63E /* ArtBlocksRenderingNetworkTests.swift */; };
 		4FCD13DF2BCE84FD50EC125D /* ArtBlocksBundledResourceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 613021839F06631D63D4AE0C /* ArtBlocksBundledResourceTests.swift */; };
+		FBFF654E3666333F55E4D2DA /* ArtworkAssetHTMLTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8480F3D8FFB98D2681C205B5 /* ArtworkAssetHTMLTests.swift */; };
 		2DA500012FF1000000000001 /* MobilePlayerBrowserPageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA500112FF1000000000001 /* MobilePlayerBrowserPageViewController.swift */; };
 		2DA500022FF1000000000001 /* PendingMainQueueUpdate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA500122FF1000000000001 /* PendingMainQueueUpdate.swift */; };
 		2DA500032FF1000000000001 /* MobilePlayerCollectionBrowserCollectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA500132FF1000000000001 /* MobilePlayerCollectionBrowserCollectionView.swift */; };
@@ -387,15 +388,23 @@
 		B8E9C26A020E4A47AC4B7F32 /* WidgetArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8E9C26A020E4A47AC4B7F30 /* WidgetArtwork.swift */; };
 		B8E9C26A020E4A47AC4B7F33 /* WidgetArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8E9C26A020E4A47AC4B7F30 /* WidgetArtwork.swift */; };
 		B8E9C26A020E4A47AC4B7F34 /* CollectionBrowserConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1200000000000000000001 /* CollectionBrowserConfiguration.swift */; };
+		66837BAFFFB623AEEDC4B652 /* CollectionBrowserConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1200000000000000000001 /* CollectionBrowserConfiguration.swift */; };
 		B8E9C26A020E4A47AC4B7F35 /* CollectionBrowserConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1200000000000000000001 /* CollectionBrowserConfiguration.swift */; };
 		B8E9C26A020E4A47AC4B7F36 /* CollectionBrowserConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1200000000000000000001 /* CollectionBrowserConfiguration.swift */; };
 		DBC9D7816F4E41DB90C68E13 /* CollectionPlatformAvailability.swift in Sources */ = {isa = PBXBuildFile; fileRef = C25D0FE412084923AF5C46B2 /* CollectionPlatformAvailability.swift */; };
+		3B92A5BC2AE571022FD5E6E7 /* ArtworkAssetPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19BBA55050B2EBCF492F9764 /* ArtworkAssetPolicy.swift */; };
 		8910B3355EB549A6B6BD8478 /* CollectionPlatformAvailability.swift in Sources */ = {isa = PBXBuildFile; fileRef = C25D0FE412084923AF5C46B2 /* CollectionPlatformAvailability.swift */; };
+		4FC41578E386423D5BEFAABE /* ArtworkAssetPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19BBA55050B2EBCF492F9764 /* ArtworkAssetPolicy.swift */; };
 		3256972AFE4C45A5BB5BE5BB /* CollectionPlatformAvailability.swift in Sources */ = {isa = PBXBuildFile; fileRef = C25D0FE412084923AF5C46B2 /* CollectionPlatformAvailability.swift */; };
+		29914561452BD12BF4784A93 /* ArtworkAssetPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19BBA55050B2EBCF492F9764 /* ArtworkAssetPolicy.swift */; };
 		45ADD5438DD048A4B6280BCB /* CollectionPlatformAvailability.swift in Sources */ = {isa = PBXBuildFile; fileRef = C25D0FE412084923AF5C46B2 /* CollectionPlatformAvailability.swift */; };
+		9E674F1A855C7C5E49537691 /* ArtworkAssetPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19BBA55050B2EBCF492F9764 /* ArtworkAssetPolicy.swift */; };
 		85D2F5924CAE48468C9180F4 /* CollectionPlatformAvailability.swift in Sources */ = {isa = PBXBuildFile; fileRef = C25D0FE412084923AF5C46B2 /* CollectionPlatformAvailability.swift */; };
+		695CF42A2B1EE46D78B68659 /* ArtworkAssetPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19BBA55050B2EBCF492F9764 /* ArtworkAssetPolicy.swift */; };
 		44F9FB3DFD4D4A2898BBA3C3 /* CollectionPlatformAvailability.swift in Sources */ = {isa = PBXBuildFile; fileRef = C25D0FE412084923AF5C46B2 /* CollectionPlatformAvailability.swift */; };
+		6B384E84255D71043B4445ED /* ArtworkAssetPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19BBA55050B2EBCF492F9764 /* ArtworkAssetPolicy.swift */; };
 		7636F5CD776E4CFE9FBF601E /* CollectionPlatformAvailability.swift in Sources */ = {isa = PBXBuildFile; fileRef = C25D0FE412084923AF5C46B2 /* CollectionPlatformAvailability.swift */; };
+		803FEB89F9521A90D234CDA8 /* ArtworkAssetPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19BBA55050B2EBCF492F9764 /* ArtworkAssetPolicy.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -619,6 +628,7 @@
 		2EAB40000000000000000002 /* ArtBlocksRenderingResizeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtBlocksRenderingResizeTests.swift; sourceTree = "<group>"; };
 		84FF8ACB6B6F36AAF544C63E /* ArtBlocksRenderingNetworkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtBlocksRenderingNetworkTests.swift; sourceTree = "<group>"; };
 		613021839F06631D63D4AE0C /* ArtBlocksBundledResourceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtBlocksBundledResourceTests.swift; sourceTree = "<group>"; };
+		8480F3D8FFB98D2681C205B5 /* ArtworkAssetHTMLTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtworkAssetHTMLTests.swift; sourceTree = "<group>"; };
 		2DA500112FF1000000000001 /* MobilePlayerBrowserPageViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerBrowserPageViewController.swift; sourceTree = "<group>"; };
 		2DA500122FF1000000000001 /* PendingMainQueueUpdate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingMainQueueUpdate.swift; sourceTree = "<group>"; };
 		2DA500132FF1000000000001 /* MobilePlayerCollectionBrowserCollectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerCollectionBrowserCollectionView.swift; sourceTree = "<group>"; };
@@ -688,6 +698,7 @@
 		EC91FFAD6AC54A525A147F2C /* nft_player_vision_widget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "nft_player_vision_widget.entitlements"; sourceTree = "<group>"; };
 		B8E9C26A020E4A47AC4B7F30 /* WidgetArtwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetArtwork.swift; sourceTree = "<group>"; };
 		C25D0FE412084923AF5C46B2 /* CollectionPlatformAvailability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionPlatformAvailability.swift; sourceTree = "<group>"; };
+		19BBA55050B2EBCF492F9764 /* ArtworkAssetPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtworkAssetPolicy.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -761,6 +772,7 @@
 				2C98C4AC2BEE9E390040383D /* Consts.swift */,
 				2CFA92002EB2000000000001 /* CollectionCatalog.swift */,
 				C25D0FE412084923AF5C46B2 /* CollectionPlatformAvailability.swift */,
+				19BBA55050B2EBCF492F9764 /* ArtworkAssetPolicy.swift */,
 				2D1000302F30000000000001 /* PlayerWidgetTokenInsertion.swift */,
 				2D1000012F30000000000001 /* WidgetDeepLink.swift */,
 				B8E9C26A020E4A47AC4B7F30 /* WidgetArtwork.swift */,
@@ -1103,6 +1115,7 @@
 				2EAB40000000000000000002 /* ArtBlocksRenderingResizeTests.swift */,
 				84FF8ACB6B6F36AAF544C63E /* ArtBlocksRenderingNetworkTests.swift */,
 				613021839F06631D63D4AE0C /* ArtBlocksBundledResourceTests.swift */,
+				8480F3D8FFB98D2681C205B5 /* ArtworkAssetHTMLTests.swift */,
 				18B78536187C4E289BFABB9B /* PersistentArtworkDependencyLoadingTests.swift */,
 				32A6AC462E5F442987766A69 /* Fixtures */,
 				2DA400022FF0000000000001 /* MobileCollectionBrowserGridModePresentationTests.swift */,
@@ -1601,6 +1614,7 @@
 				2EAB40000000000000000001 /* ArtBlocksRenderingResizeTests.swift in Sources */,
 				C1BDBDFCA2E97F4F5302E0A0 /* ArtBlocksRenderingNetworkTests.swift in Sources */,
 				4FCD13DF2BCE84FD50EC125D /* ArtBlocksBundledResourceTests.swift in Sources */,
+				FBFF654E3666333F55E4D2DA /* ArtworkAssetHTMLTests.swift in Sources */,
 				F07E58FCB5EC46BD968FA02E /* PersistentArtworkDependencyLoadingTests.swift in Sources */,
 				2DA400012FF0000000000001 /* MobileCollectionBrowserGridModePresentationTests.swift in Sources */,
 				2DA600062FF2000000000001 /* MobileCollectionBrowserGridTransitionTests.swift in Sources */,
@@ -1684,6 +1698,7 @@
 				2D1000312F30000000000001 /* PlayerWidgetTokenInsertion.swift in Sources */,
 				2CFA92012EB2000000000001 /* CollectionCatalog.swift in Sources */,
 				DBC9D7816F4E41DB90C68E13 /* CollectionPlatformAvailability.swift in Sources */,
+				3B92A5BC2AE571022FD5E6E7 /* ArtworkAssetPolicy.swift in Sources */,
 				2CFA90012EB0000000000001 /* MobileCollectionCatalog.swift in Sources */,
 				2CF08AAA2D2A937400D82ACA /* MobileHelpers.swift in Sources */,
 				2CF08AAB2D2A937400D82ACA /* nft_player_iosApp.swift in Sources */,
@@ -1768,6 +1783,7 @@
 				2D1000332F30000000000001 /* PlayerWidgetTokenInsertion.swift in Sources */,
 				2D3000002F40000000000001 /* CollectionCatalog.swift in Sources */,
 				8910B3355EB549A6B6BD8478 /* CollectionPlatformAvailability.swift in Sources */,
+				4FC41578E386423D5BEFAABE /* ArtworkAssetPolicy.swift in Sources */,
 				2DA100042FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */,
 				2D3000012F40000000000001 /* DownloadableMediaCache.swift in Sources */,
 				2ECA00000000000000000011 /* DownloadableMediaCacheSupport.swift in Sources */,
@@ -1835,6 +1851,8 @@
 				2D8000012FA0000000000001 /* PlayerICloudSync.swift in Sources */,
 				2D6000002F70000000000001 /* CollectionCatalog.swift in Sources */,
 				3256972AFE4C45A5BB5BE5BB /* CollectionPlatformAvailability.swift in Sources */,
+				66837BAFFFB623AEEDC4B652 /* CollectionBrowserConfiguration.swift in Sources */,
+				29914561452BD12BF4784A93 /* ArtworkAssetPolicy.swift in Sources */,
 				2DA100052FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */,
 				2D7000032F70000100000001 /* DownloadableMediaCache.swift in Sources */,
 				2ECA00000000000000000012 /* DownloadableMediaCacheSupport.swift in Sources */,
@@ -1872,6 +1890,7 @@
 				2D1000322F30000000000001 /* PlayerWidgetTokenInsertion.swift in Sources */,
 				2CFA92022EB2000000000001 /* CollectionCatalog.swift in Sources */,
 				45ADD5438DD048A4B6280BCB /* CollectionPlatformAvailability.swift in Sources */,
+				9E674F1A855C7C5E49537691 /* ArtworkAssetPolicy.swift in Sources */,
 				2DA100062FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */,
 				2C1B60BD2B7D3505009949C2 /* Strings.swift in Sources */,
 				2CA34B3D2B082BDF00DAB623 /* WalletsListView.swift in Sources */,
@@ -1953,6 +1972,7 @@
 				D5AC15F86C984B1BB10FBFA0 /* BundledMediaResolver.swift in Sources */,
 				B8E9C26A020E4A47AC4B7F31 /* WidgetArtwork.swift in Sources */,
 				85D2F5924CAE48468C9180F4 /* CollectionPlatformAvailability.swift in Sources */,
+				695CF42A2B1EE46D78B68659 /* ArtworkAssetPolicy.swift in Sources */,
 				B8E9C26A020E4A47AC4B7F34 /* CollectionBrowserConfiguration.swift in Sources */,
 				2D10001C2F30000000000001 /* WidgetDeepLink.swift in Sources */,
 				2D1000202F30000000000001 /* CollectionOfTheDayWidgetData.swift in Sources */,
@@ -1969,6 +1989,7 @@
 				A8E350AE1D5146D28F2F7019 /* BundledMediaResolver.swift in Sources */,
 				B8E9C26A020E4A47AC4B7F32 /* WidgetArtwork.swift in Sources */,
 				44F9FB3DFD4D4A2898BBA3C3 /* CollectionPlatformAvailability.swift in Sources */,
+				6B384E84255D71043B4445ED /* ArtworkAssetPolicy.swift in Sources */,
 				B8E9C26A020E4A47AC4B7F35 /* CollectionBrowserConfiguration.swift in Sources */,
 				2D10001D2F30000000000001 /* WidgetDeepLink.swift in Sources */,
 				2D1000212F30000000000001 /* CollectionOfTheDayWidgetData.swift in Sources */,
@@ -1985,6 +2006,7 @@
 				39F56BCB29FD4D299ECE3A1A /* BundledMediaResolver.swift in Sources */,
 				B8E9C26A020E4A47AC4B7F33 /* WidgetArtwork.swift in Sources */,
 				7636F5CD776E4CFE9FBF601E /* CollectionPlatformAvailability.swift in Sources */,
+				803FEB89F9521A90D234CDA8 /* ArtworkAssetPolicy.swift in Sources */,
 				B8E9C26A020E4A47AC4B7F36 /* CollectionBrowserConfiguration.swift in Sources */,
 				2D5000002F60000000000001 /* WidgetDeepLink.swift in Sources */,
 				2D5000022F60000000000001 /* CollectionOfTheDayWidgetData.swift in Sources */,

@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { cdnAssetURL, downloadCDNAsset } from "../tools/cdn-assets.mjs";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const defaultItemsPath = path.join(repositoryRoot, "Suggested Items/items.json");
@@ -32,11 +33,7 @@ export function artworkSourceDescriptors(items) {
     const extension = script.kind === "html" ? "html" : script.kind === "processingjs146" ? "pde" : "js";
     const sourceURL = script.sourceURL ?? `https://cdn.lil.org/player/scripts/${slug}.${extension}`;
     let url;
-    try { url = new URL(sourceURL); } catch { throw new Error(`${slug}: sourceURL must be an absolute HTTPS URL.`); }
-    if (typeof sourceURL !== "string" || url.protocol !== "https:" || !url.hostname || url.username || url.password
-        || url.href.includes("#")) {
-      throw new Error(`${slug}: sourceURL must be an absolute HTTPS URL.`);
-    }
+    try { url = cdnAssetURL(sourceURL); } catch (error) { throw new Error(`${slug}: ${error.message}`, { cause: error }); }
     return [{
       slug,
       url: url.href,
@@ -69,17 +66,11 @@ async function hasValidSource(filePath, descriptor) {
   try { validateSource(data, descriptor); return true; } catch { return false; }
 }
 
-async function download(url) {
-  const response = await fetch(url, { signal: AbortSignal.timeout(60_000) });
-  if (response.status !== 200) return { statusCode: response.status, data: Buffer.alloc(0) };
-  return { statusCode: response.status, data: Buffer.from(await response.arrayBuffer()) };
-}
-
 export async function hydrateArtworkTestSources({
   itemsPath = defaultItemsPath,
   outputDirectory = defaultOutputDirectory,
   check = false,
-  transport = download,
+  transport = downloadCDNAsset,
 } = {}) {
   const descriptors = artworkSourceDescriptors(JSON.parse(await fs.readFile(itemsPath, "utf8")));
   const uniqueDescriptors = new Map();

@@ -9,7 +9,12 @@ enum DownloadableMediaIndices {
         )
         let excludedIndices = groups.map { sources in
             sources.enumerated().compactMap { index, source -> Int? in
-                guard let source, BundledMediaResolver.resolve(source)?.kind != nil else { return index }
+                guard let source,
+                      let media = BundledMediaResolver.resolve(source),
+                      media.kind != nil,
+                      ArtworkAssetPolicy.allowsRemoteURL(media.url, allowsTerraforms: true) else {
+                    return index
+                }
                 return nil
             }
         }

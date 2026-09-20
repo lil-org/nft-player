@@ -70,7 +70,8 @@ nonisolated enum ArtworkContentResolver {
         } else {
             document = html
         }
-        return try await PersistentJavaScriptLibrary.resolve(document, cache: cache, allowsDownloads: allowsDownloads)
+        let resolved = try await PersistentJavaScriptLibrary.resolve(document, cache: cache, allowsDownloads: allowsDownloads)
+        return ArtworkAssetPolicy.protectHTML(resolved)
     }
 
     @concurrent

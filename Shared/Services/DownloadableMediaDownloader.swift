@@ -23,7 +23,7 @@ actor DownloadableMediaDownloader: DownloadableMediaDownloading {
         configuration.timeoutIntervalForRequest = 30
         configuration.timeoutIntervalForResource = 120
         configuration.httpMaximumConnectionsPerHost = maximumConcurrentDownloads
-        session = URLSession(configuration: configuration)
+        session = ArtworkAssetPolicy.makeSession(configuration: configuration, allowsTerraforms: true)
     }
 
     func download(
@@ -101,6 +101,17 @@ actor DownloadableMediaDownloader: DownloadableMediaDownloading {
             previousDownload.continuation.resume(
                 returning: Self.cancelledResult(requestID: request.id)
             )
+        }
+
+        guard ArtworkAssetPolicy.allowsRemoteURL(request.sourceURL, allowsTerraforms: true) else {
+            markTerminal(request.id)
+            continuation.resume(returning: DownloadableMediaDownloadResult(
+                requestID: request.id,
+                stagedURL: nil,
+                sourceURL: nil,
+                failure: .invalidResponse
+            ))
+            return
         }
 
         let completionID = UUID()

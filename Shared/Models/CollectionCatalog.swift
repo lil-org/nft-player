@@ -1364,7 +1364,7 @@ nonisolated private enum DownloadableCollectionService {
         case .video:
             html = DownloadableTokenHTML.createVideoHTML(videoURL: media.url.absoluteString)
         case .html:
-            html = DownloadableTokenHTML.createHTMLDocumentHTML(documentURL: media.url.absoluteString)
+            html = DownloadableTokenHTML.createHTMLDocumentPlaceholder()
         }
 
         return GeneratedToken(
@@ -1560,9 +1560,6 @@ nonisolated struct DownloadableTokenItem: Codable, Hashable, Sendable {
         if let urlSuffix {
             return (collection.urlPrefix ?? "") + urlSuffix
         }
-        if collection.chain == .ethereum {
-            return "https://media-proxy.artblocks.io/\(collection.address)/\(id).png"
-        }
         return nil
     }
 
@@ -1646,7 +1643,7 @@ nonisolated enum DownloadableTokenHTML {
     }
 
     static func createImageHTML(imageURL: String, nextImageURL: String? = nil) -> String {
-        """
+        ArtworkAssetPolicy.protectHTML("""
         <!doctype html>
         <html>
         <head>
@@ -1690,11 +1687,11 @@ nonisolated enum DownloadableTokenHTML {
         </script>
         </body>
         </html>
-        """
+        """)
     }
 
     static func createVideoHTML(videoURL: String) -> String {
-        """
+        ArtworkAssetPolicy.protectHTML("""
         <!doctype html>
         <html>
         <head>
@@ -1751,16 +1748,13 @@ nonisolated enum DownloadableTokenHTML {
         </script>
         </body>
         </html>
-        """
+        """)
     }
 
-    static func createHTMLDocumentHTML(documentURL: String) -> String {
+    static func createHTMLDocumentPlaceholder() -> String {
         createHTMLDocumentFrameHTML(
             iframeSandbox: trustedHTMLDocumentSandbox,
-            iframeSourceJavaScript: """
-        const documentURL = \(javaScriptStringLiteral(documentURL));
-        document.getElementById(\(javaScriptStringLiteral(htmlDocumentElementId))).src = documentURL;
-        """
+            iframeSourceJavaScript: ""
         )
     }
 
@@ -1769,7 +1763,9 @@ nonisolated enum DownloadableTokenHTML {
         baseURL: String?,
         contentSize: CGSize? = nil
     ) -> String {
-        let documentHTML = htmlDocument(documentHTML, insertingBaseURL: baseURL)
+        let documentHTML = ArtworkAssetPolicy.protectHTML(
+            htmlDocument(documentHTML, insertingBaseURL: baseURL)
+        )
         return createHTMLDocumentFrameHTML(
             iframeSandbox: trustedHTMLDocumentSandbox,
             contentSize: contentSize,
@@ -1785,7 +1781,7 @@ nonisolated enum DownloadableTokenHTML {
         contentSize: CGSize? = nil,
         iframeSourceJavaScript: String
     ) -> String {
-        """
+        ArtworkAssetPolicy.protectHTML("""
         <!doctype html>
         <html>
         <head>
@@ -1822,7 +1818,7 @@ nonisolated enum DownloadableTokenHTML {
         </script>
         </body>
         </html>
-        """
+        """)
     }
 
     static func preloadImageJavaScript(imageURL: URL) -> String {

@@ -105,8 +105,8 @@ extension PersistentJavaScriptLibraryTests {
             XCTAssertEqual(actual, expected, script.name)
             XCTAssertTrue(PersistentJavaScriptLibrary.requiredDependencies(in: actual).isEmpty, script.name)
         }
-        XCTAssertEqual(usingLibraries, 274)
-        XCTAssertEqual(references, 275)
+        XCTAssertEqual(usingLibraries, 273)
+        XCTAssertEqual(references, 274)
     }
 
     func testCollectionsShareOneCachedCopyAndReopenOffline() async throws {

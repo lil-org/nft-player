@@ -10,7 +10,6 @@ nonisolated struct WidgetCollection: Decodable, Hashable, Sendable {
     let hasMid: Bool
     let standardThumbsPathsAvailable: Bool
     let standardThumbsBaseURL: String?
-    private let chain: WidgetCollectionChain
     private let script: WidgetCollectionScript?
     private let iosOnly: Bool?
     private let generativeOnly: Bool?
@@ -25,7 +24,6 @@ nonisolated struct WidgetCollection: Decodable, Hashable, Sendable {
         case hasMid
         case standardThumbsPathsAvailable
         case standardThumbsBaseURL
-        case chain
         case script
         case iosOnly
         case generativeOnly
@@ -44,7 +42,6 @@ nonisolated struct WidgetCollection: Decodable, Hashable, Sendable {
             forKey: .standardThumbsPathsAvailable
         ) ?? false
         standardThumbsBaseURL = try container.decodeIfPresent(String.self, forKey: .standardThumbsBaseURL)
-        chain = try container.decode(WidgetCollectionChain.self, forKey: .chain)
         script = try container.decodeIfPresent(WidgetCollectionScript.self, forKey: .script)
         iosOnly = try container.decodeIfPresent(Bool.self, forKey: .iosOnly)
         generativeOnly = try container.decodeIfPresent(Bool.self, forKey: .generativeOnly)
@@ -68,10 +65,6 @@ nonisolated struct WidgetCollection: Decodable, Hashable, Sendable {
         return internalSlug
     }
 
-    var usesEthereumMediaProxyFallback: Bool {
-        chain == .ethereum
-    }
-
     func isAvailable(on platform: CollectionPlatformAvailability.Platform = .current) -> Bool {
         CollectionPlatformAvailability.isAvailable(iosOnly: iosOnly, generativeOnly: generativeOnly, on: platform)
             && CollectionPlatformAvailability.isRendererAvailable(
@@ -90,16 +83,6 @@ nonisolated struct WidgetCollection: Decodable, Hashable, Sendable {
 nonisolated struct WidgetStaticImageReference: Hashable, Sendable {
     let tokenId: String
     let url: URL
-}
-
-nonisolated private enum WidgetCollectionChain: Decodable, Hashable, Sendable {
-    case ethereum
-    case other
-
-    init(from decoder: Decoder) throws {
-        let value = try decoder.singleValueContainer().decode(String.self)
-        self = value == "ethereum" ? .ethereum : .other
-    }
 }
 
 nonisolated private struct WidgetCollectionScript: Decodable, Hashable, Sendable {
@@ -162,11 +145,10 @@ nonisolated struct WidgetTokenItem: Decodable, Hashable, Sendable {
 
     func staticImageReference(collection: WidgetCollection) -> WidgetStaticImageReference? {
         if urlSuffix == nil, collection.hasMid, collection.hasWebGenerativeScript {
-            guard let slug = collection.internalSlug,
-                  slug.count <= 120,
-                  slug.range(of: "\\A[a-z0-9]+(?:_[a-z0-9]+)*\\z", options: .regularExpression) != nil,
-                  let sourceIndex, sourceIndex >= 0,
-                  let url = URL(string: "https://cdn.lil.org/player/\(slug)/mid/\(sourceIndex).webp") else {
+            guard let url = CollectionBrowseImageURLMapping.generativeMidURL(
+                slug: collection.internalSlug,
+                sourceIndex: sourceIndex
+            ) else {
                 return nil
             }
             return WidgetStaticImageReference(tokenId: id, url: url)
@@ -183,12 +165,11 @@ nonisolated struct WidgetTokenItem: Decodable, Hashable, Sendable {
 
         let url: URL
         if collection.hasMid {
-            guard collection.standardThumbsPathsAvailable,
-                  let thumbnailURL = CollectionBrowseImageURLMapping.standardThumbnailURL(
+            guard let midURL = CollectionBrowseImageURLMapping.downloadableMidURL(
                     for: resolved.url,
+                    standardThumbsPathsAvailable: collection.standardThumbsPathsAvailable,
                     standardThumbsBaseURL: collection.standardThumbsBaseURL
-                  ),
-                  let midURL = CollectionBrowseImageURLMapping.midURL(for: thumbnailURL) else {
+                  ) else {
                 return nil
             }
             url = midURL
@@ -196,15 +177,13 @@ nonisolated struct WidgetTokenItem: Decodable, Hashable, Sendable {
             guard case .staticImage? = resolved.kind else { return nil }
             url = resolved.url
         }
+        guard ArtworkAssetPolicy.allowsRemoteURL(url) else { return nil }
         return WidgetStaticImageReference(tokenId: id, url: url)
     }
 
     private func resolvedURLString(collection: WidgetCollection) -> String? {
         if let urlSuffix {
             return (collection.urlPrefix ?? "") + urlSuffix
-        }
-        if collection.usesEthereumMediaProxyFallback {
-            return "https://media-proxy.artblocks.io/\(collection.address)/\(id).png"
         }
         return nil
     }

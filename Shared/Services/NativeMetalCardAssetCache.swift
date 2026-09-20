@@ -124,7 +124,7 @@ private nonisolated final class NativeMetalCardDownloadOperation: @unchecked Sen
             .appendingPathExtension(
                 URL(fileURLWithPath: relativePath).pathExtension
             )
-        task = URLSession.shared.downloadTask(with: remoteURL) {
+        task = ArtworkAssetPolicy.cdnSession.downloadTask(with: remoteURL) {
             temporaryURL,
             response,
             error in
@@ -358,7 +358,8 @@ actor NativeMetalCardAssetCache {
             pendingDownloads[relativePath] = existingDownload
             pendingDownload = existingDownload
         } else {
-            guard let remoteURL = configuration.remoteURL(asset) else {
+            guard let remoteURL = configuration.remoteURL(asset),
+                  ArtworkAssetPolicy.allowsRemoteURL(remoteURL) else {
                 configuration.logger.error(
                     "Unknown \(self.configuration.logName, privacy: .public) asset path: \(relativePath, privacy: .public)"
                 )

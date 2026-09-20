@@ -255,6 +255,12 @@ extension ArtBlocksBundledResourceTests {
             localHTML.insert(contentsOf: capture, at: adapterRange.lowerBound)
             var originalHTML = html
             originalHTML.replaceSubrange(adapterRange, with: capture + "<script>tokenData.preferredIPFSGateway = 'hypertype-fixture://bundled/';</script>")
+            originalHTML = originalHTML.replacingOccurrences(
+                of: ArtworkAssetPolicy.contentSecurityPolicyMetaTag,
+                with: ArtworkAssetPolicy.contentSecurityPolicyMetaTag.replacingOccurrences(
+                    of: "script-src ", with: "script-src hypertype-fixture: "
+                )
+            )
             var svgDigests: [String] = []
             for (kind, document) in [("bundled", localHTML), ("original", originalHTML)] {
                 let fixture = try HypertypeOfflineFixture(asset: asset, rules: XCTUnwrap(rules))

@@ -6,6 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import suggestedItems from "../tools/suggested_items.js";
 import tokenManifest from "../tools/token_manifest.js";
+import { downloadCDNAsset } from "../tools/cdn-assets.mjs";
 
 const { assertValidInternalSlugs } = suggestedItems;
 const { decodeTokenManifest } = tokenManifest;
@@ -47,17 +48,11 @@ async function hasValidManifest(filePath, descriptor) {
   try { validateManifest(data, descriptor); return true; } catch { return false; }
 }
 
-async function download(url) {
-  const response = await fetch(url, { signal: AbortSignal.timeout(60_000) });
-  if (response.status !== 200) return { statusCode: response.status, data: Buffer.alloc(0) };
-  return { statusCode: response.status, data: Buffer.from(await response.arrayBuffer()) };
-}
-
 export async function hydrateCollectionTestManifests({
   itemsPath = defaultItemsPath,
   outputDirectory = defaultOutputDirectory,
   check = false,
-  transport = download,
+  transport = downloadCDNAsset,
 } = {}) {
   const descriptors = collectionManifestDescriptors(JSON.parse(await fs.readFile(itemsPath, "utf8")));
   if (!check) await fs.mkdir(outputDirectory, { recursive: true });

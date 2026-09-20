@@ -135,6 +135,33 @@ nonisolated enum CollectionBrowseThumbnailWidth: Int, CaseIterable, Hashable, Se
 }
 
 nonisolated enum CollectionBrowseImageURLMapping: Sendable {
+    static func generativeMidURL(slug: String?, sourceIndex: Int?) -> URL? {
+        guard let slug,
+              slug.count <= 120,
+              slug.range(of: "\\A[a-z0-9]+(?:_[a-z0-9]+)*\\z", options: .regularExpression) != nil,
+              let sourceIndex, sourceIndex >= 0 else {
+            return nil
+        }
+        return URL(string: "https://cdn.lil.org/player/\(slug)/mid/\(sourceIndex).webp")
+    }
+
+    static func downloadableMidURL(
+        for originalURL: URL,
+        standardThumbsPathsAvailable: Bool,
+        standardThumbsBaseURL: String? = nil
+    ) -> URL? {
+        guard standardThumbsPathsAvailable,
+              let thumbnailURL = standardThumbnailURL(
+                for: originalURL,
+                standardThumbsBaseURL: standardThumbsBaseURL
+              ),
+              let url = midURL(for: thumbnailURL),
+              ArtworkAssetPolicy.allowsRemoteURL(url) else {
+            return nil
+        }
+        return url
+    }
+
     static func standardThumbnailURL(
         for originalURL: URL,
         standardThumbsBaseURL: String? = nil

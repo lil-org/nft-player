@@ -64,7 +64,7 @@ final class WidgetArtworkTests: XCTestCase {
             let token = WidgetTokenItem(id: "different-token-id", urlSuffix: "0007.\(fileExtension)")
             let reference = try XCTUnwrap(token.staticImageReference(collection: collection))
             XCTAssertEqual(reference.tokenId, "different-token-id")
-            XCTAssertEqual(reference.url.absoluteString, "https://cdn.example.com/artwork/mid/0007.webp")
+            XCTAssertEqual(reference.url.absoluteString, "https://cdn.lil.org/artwork/mid/0007.webp")
         }
     }
 
@@ -76,28 +76,28 @@ final class WidgetArtworkTests: XCTestCase {
         let token = WidgetTokenItem(id: "token", urlSuffix: "nested/0007.png?version=3#artwork")
         XCTAssertEqual(
             token.staticImageReference(collection: collection)?.url.absoluteString,
-            "https://cdn.example.com/artwork/nested/mid/0007.webp"
+            "https://cdn.lil.org/artwork/nested/mid/0007.webp"
         )
     }
 
     func testMidUsesCustomThumbnailBaseForExtensionlessSource() throws {
         let collection = try collection([
-            "urlPrefix": "https://tokens.example.com/token-html/",
+            "urlPrefix": "https://tokens.mathcastles.xyz/terraforms/token-html/",
             "standardThumbsPathsAvailable": true,
-            "standardThumbsBaseURL": "https://cdn.example.com/terraforms/thumbs/",
+            "standardThumbsBaseURL": "https://cdn.lil.org/terraforms/thumbs/",
         ])
         let token = WidgetTokenItem(id: "token-42", urlSuffix: "0007")
         let reference = try XCTUnwrap(token.staticImageReference(collection: collection))
         XCTAssertEqual(reference.tokenId, "token-42")
-        XCTAssertEqual(reference.url.absoluteString, "https://cdn.example.com/terraforms/mid/0007.webp")
+        XCTAssertEqual(reference.url.absoluteString, "https://cdn.lil.org/terraforms/mid/0007.webp")
     }
 
     func testMidFailureNeverFallsBackToOriginalOrThumbnail() throws {
         let cases: [[String: Any]] = [
             ["standardThumbsPathsAvailable": false],
             ["standardThumbsPathsAvailable": true, "standardThumbsBaseURL": "file:///artwork/thumbs/"],
-            ["standardThumbsPathsAvailable": true, "standardThumbsBaseURL": "https://cdn.example.com/previews/"],
-            ["standardThumbsPathsAvailable": true, "standardThumbsBaseURL": "https://cdn.example.com/thumbs/?v=1"],
+            ["standardThumbsPathsAvailable": true, "standardThumbsBaseURL": "https://cdn.lil.org/previews/"],
+            ["standardThumbsPathsAvailable": true, "standardThumbsBaseURL": "https://cdn.lil.org/thumbs/?v=1"],
         ]
         for fields in cases {
             let collection = try collection(fields)
@@ -119,9 +119,9 @@ final class WidgetArtworkTests: XCTestCase {
             "ipfs://image/0007.png",
             "/artwork/0007.png",
             "https:///0007.png",
-            "https://cdn.example.com/artwork/",
-            "https://cdn.example.com/artwork/nested%2F0007.png",
-            "https://cdn.example.com/artwork/nested%5C0007.png",
+            "https://cdn.lil.org/artwork/",
+            "https://cdn.lil.org/artwork/nested%2F0007.png",
+            "https://cdn.lil.org/artwork/nested%5C0007.png",
         ] {
             XCTAssertNil(WidgetTokenItem(id: "token", urlSuffix: source)
                 .staticImageReference(collection: collection), source)
@@ -138,12 +138,12 @@ final class WidgetArtworkTests: XCTestCase {
             let reference = try XCTUnwrap(WidgetTokenItem(id: "token", urlSuffix: suffix)
                 .staticImageReference(collection: collection))
             XCTAssertEqual(reference.tokenId, "token")
-            XCTAssertEqual(reference.url.absoluteString, "https://cdn.example.com/artwork/" + suffix)
+            XCTAssertEqual(reference.url.absoluteString, "https://cdn.lil.org/artwork/" + suffix)
         }
         XCTAssertEqual(
             WidgetTokenItem(id: "token", urlSuffix: "0007?ext=png")
                 .staticImageReference(collection: collection)?.url.absoluteString,
-            "https://cdn.example.com/artwork/0007?ext=png"
+            "https://cdn.lil.org/artwork/0007?ext=png"
         )
     }
 
@@ -154,11 +154,11 @@ final class WidgetArtworkTests: XCTestCase {
             "standardThumbsPathsAvailable": true,
         ])
         for source in [
-            "https://cdn.example.com/0007.gif",
-            "https://cdn.example.com/0007.svg",
-            "https://cdn.example.com/0007.mp4",
-            "https://cdn.example.com/0007.html",
-            "https://cdn.example.com/0007",
+            "https://cdn.lil.org/0007.gif",
+            "https://cdn.lil.org/0007.svg",
+            "https://cdn.lil.org/0007.mp4",
+            "https://cdn.lil.org/0007.html",
+            "https://cdn.lil.org/0007",
             "file:///artwork/0007.png",
             "0007.png",
         ] {
@@ -167,23 +167,36 @@ final class WidgetArtworkTests: XCTestCase {
         }
     }
 
-    func testEthereumSourceFallbackStillUsesTokenID() throws {
-        let collection = try collection([
-            "address": "0xcontract",
-            "chain": "ethereum",
-            "standardThumbsPathsAvailable": true,
-        ])
-        let token = WidgetTokenItem(id: "123000007", urlSuffix: nil)
-        let reference = try XCTUnwrap(token.staticImageReference(collection: collection))
-        XCTAssertEqual(reference.tokenId, "123000007")
-        XCTAssertEqual(
-            reference.url.absoluteString,
-            "https://media-proxy.artblocks.io/0xcontract/mid/123000007.webp"
-        )
-        XCTAssertNil(token.staticImageReference(collection: try self.collection([
-            "chain": "solana",
-            "standardThumbsPathsAvailable": true,
-        ])))
+    func testMissingSourcesNeverFallBackToExternalProxy() throws {
+        for chain in ["ethereum", "solana", "tezos"] {
+            for hasMid in [true, false] {
+                let collection = try collection([
+                    "chain": chain,
+                    "hasMid": hasMid,
+                    "standardThumbsPathsAvailable": true,
+                ])
+                XCTAssertNil(WidgetTokenItem(id: "123000007", urlSuffix: nil)
+                    .staticImageReference(collection: collection))
+            }
+        }
+    }
+
+    func testExternalAssetsAreRejected() throws {
+        for hasMid in [true, false] {
+            let collection = try collection([
+                "urlPrefix": "",
+                "hasMid": hasMid,
+                "standardThumbsPathsAvailable": true,
+            ])
+            for source in [
+                "https://media.example.com/0007.png",
+                "http://cdn.lil.org/0007.png",
+                "https://cdn.lil.org.example.com/0007.png",
+            ] {
+                XCTAssertNil(WidgetTokenItem(id: "token", urlSuffix: source)
+                    .staticImageReference(collection: collection))
+            }
+        }
     }
 
     func testCompactPayloadRetainsIDsWhenTemplateUsesIndex() throws {
@@ -197,8 +210,8 @@ final class WidgetArtworkTests: XCTestCase {
         let references = items.compactMap { $0.staticImageReference(collection: collection) }
         XCTAssertEqual(references.map(\.tokenId), ["token-a", "token-b"])
         XCTAssertEqual(references.map(\.url.absoluteString), [
-            "https://cdn.example.com/artwork/mid/1.webp",
-            "https://cdn.example.com/artwork/mid/2.webp",
+            "https://cdn.lil.org/artwork/mid/1.webp",
+            "https://cdn.lil.org/artwork/mid/2.webp",
         ])
     }
 
@@ -210,7 +223,7 @@ final class WidgetArtworkTests: XCTestCase {
         XCTAssertEqual(payload.count, 1)
         let reference = try XCTUnwrap(payload.item(at: 0).staticImageReference(collection: collection))
         XCTAssertEqual(reference.tokenId, "1000000")
-        XCTAssertEqual(reference.url.absoluteString, "https://cdn.example.com/artwork/mid/0007.webp")
+        XCTAssertEqual(reference.url.absoluteString, "https://cdn.lil.org/artwork/mid/0007.webp")
     }
 
     func testGenerativeMidUsesManifestPositionsAndPreservesTokenIDs() throws {
@@ -244,7 +257,7 @@ final class WidgetArtworkTests: XCTestCase {
         ])
         let payload = try JSONDecoder().decode(WidgetTokenPayload.self, from: Data("""
             {"version":2,"count":3,"ids":["explicit","invalid","generated"],
-            "urlSuffix":["https://cdn.example.com/artwork/0007.png","file:///0008.png",null]}
+            "urlSuffix":["https://cdn.lil.org/artwork/0007.png","file:///0008.png",null]}
             """.utf8))
         XCTAssertNil(payload.item(at: 1).staticImageReference(collection: collection))
         let references = (0..<payload.count).compactMap {
@@ -252,7 +265,7 @@ final class WidgetArtworkTests: XCTestCase {
         }
         XCTAssertEqual(references.map(\.tokenId), ["explicit", "generated"])
         XCTAssertEqual(references.map(\.url.absoluteString), [
-            "https://cdn.example.com/artwork/mid/0007.webp",
+            "https://cdn.lil.org/artwork/mid/0007.webp",
             "https://cdn.lil.org/player/generative_art/mid/2.webp",
         ])
     }
@@ -281,7 +294,7 @@ final class WidgetArtworkTests: XCTestCase {
         }
     }
 
-    func testMissingEmptyAndNativeScriptsKeepExistingMediaPolicy() throws {
+    func testMissingEmptyAndNativeScriptsDoNotSynthesizeSources() throws {
         let scripts: [Any] = [NSNull(), ["kind": ""], ["kind": "native.card-nft-2"]]
         let token = WidgetTokenItem(id: "123000007", urlSuffix: nil, sourceIndex: 0)
         for script in scripts {
@@ -293,10 +306,7 @@ final class WidgetArtworkTests: XCTestCase {
             ]
             XCTAssertNil(token.staticImageReference(collection: try collection(fields)))
             fields["standardThumbsPathsAvailable"] = true
-            XCTAssertEqual(
-                token.staticImageReference(collection: try collection(fields))?.url.absoluteString,
-                "https://media-proxy.artblocks.io/0xcontract/mid/123000007.webp"
-            )
+            XCTAssertNil(token.staticImageReference(collection: try collection(fields)))
         }
     }
 
@@ -308,15 +318,12 @@ final class WidgetArtworkTests: XCTestCase {
             "script": ["kind": "js"],
             "hasMid": false,
         ])
-        XCTAssertEqual(
-            WidgetTokenItem(id: "123000007", urlSuffix: nil, sourceIndex: 0)
-                .staticImageReference(collection: collection)?.url.absoluteString,
-            "https://media-proxy.artblocks.io/0xcontract/123000007.png"
-        )
+        XCTAssertNil(WidgetTokenItem(id: "123000007", urlSuffix: nil, sourceIndex: 0)
+            .staticImageReference(collection: collection))
         XCTAssertEqual(
             WidgetTokenItem(id: "123000007", urlSuffix: "0007.png", sourceIndex: 0)
                 .staticImageReference(collection: collection)?.url.absoluteString,
-            "https://cdn.example.com/artwork/0007.png"
+            "https://cdn.lil.org/artwork/0007.png"
         )
     }
 
@@ -366,7 +373,7 @@ final class WidgetArtworkTests: XCTestCase {
         var values: [String: Any] = [
             "address": "collection",
             "chain": "solana",
-            "urlPrefix": "https://cdn.example.com/artwork/",
+            "urlPrefix": "https://cdn.lil.org/artwork/",
         ]
         values.merge(fields) { _, replacement in replacement }
         return try JSONDecoder().decode(

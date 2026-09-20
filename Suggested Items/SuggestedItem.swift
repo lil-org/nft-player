@@ -34,7 +34,8 @@ nonisolated struct SuggestedItem: Identifiable, Hashable, Codable, Sendable {
                   components.host?.isEmpty == false,
                   components.user == nil, components.password == nil,
                   components.fragment == nil,
-                  let url = components.url else { return nil }
+                  let url = components.url,
+                  ArtworkAssetPolicy.allowsRemoteURL(url) else { return nil }
             remoteURL = url
         } else {
             remoteURL = URL(string: "https://cdn.lil.org/player/scripts/")!

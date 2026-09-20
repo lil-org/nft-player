@@ -26,6 +26,7 @@ async function validateDownloadableCounts(collections) {
     process.once("exit", () => rmSync(temporaryDirectory, { recursive: true, force: true }));
     const executable = path.join(temporaryDirectory, "validate-media");
     const compilation = spawnSync("xcrun", ["swiftc", "-O",
+      path.join(repositoryRoot, "Shared/Models/ArtworkAssetPolicy.swift"),
       path.join(repositoryRoot, "Shared/Models/BundledMediaResolver.swift"),
       path.join(repositoryRoot, "scripts/count-downloadable-media.swift"), "-o", executable], { encoding: "utf8" });
     if (compilation.error) throw compilation.error;
@@ -121,9 +122,7 @@ export async function updateTokenMetadata({
           manifest,
           urls: decoded.items.map((token) => token.urlSuffix != null
             ? `${item.urlPrefix ?? ""}${token.urlSuffix}`
-            : item.chain === "ethereum"
-              ? `https://media-proxy.artblocks.io/${item.address}/${token.id}.png`
-              : null),
+            : null),
         });
       }
       Object.assign(updated, metadata);

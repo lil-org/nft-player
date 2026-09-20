@@ -50,7 +50,7 @@ final class WidgetSelectionTests: XCTestCase {
             var generator = LastIndexGenerator()
             let reference = try XCTUnwrap(payload.randomStaticImageReference(
                 collection: try collection([
-                    "urlPrefix": "https://cdn.example.com/artwork/",
+                    "urlPrefix": "https://cdn.lil.org/artwork/",
                     "standardThumbsPathsAvailable": true,
                 ]),
                 using: &generator
@@ -58,7 +58,7 @@ final class WidgetSelectionTests: XCTestCase {
 
             XCTAssertEqual(generator.calls, 1)
             XCTAssertEqual(reference.tokenId, "mint-42")
-            XCTAssertEqual(reference.url.absoluteString, "https://cdn.example.com/artwork/mid/\(filename).webp")
+            XCTAssertEqual(reference.url.absoluteString, "https://cdn.lil.org/artwork/mid/\(filename).webp")
         }
     }
 

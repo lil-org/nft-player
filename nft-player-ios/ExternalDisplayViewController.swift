@@ -14,6 +14,7 @@ func updateExternalDisplayToken(_ token: GeneratedToken) {
 class ExternalDisplayViewController: UIViewController {
     
     private let artworkDependencyCache: PersistentArtworkDependencyCache
+    private let mediaCache: DownloadableMediaCache
     private lazy var mediaRenderer = FullscreenTokenMediaRenderer(
         containerView: view,
         artworkDependencyCache: artworkDependencyCache
@@ -23,9 +24,14 @@ class ExternalDisplayViewController: UIViewController {
     private var willOrDidAppear = false
     private var laidOutArtworkSize: CGSize = .zero
     private var artworkResizeTask: Task<Void, Never>?
+    private var htmlDocumentTask: Task<Void, Never>?
     
-    init(artworkDependencyCache: PersistentArtworkDependencyCache = .shared) {
+    init(
+        artworkDependencyCache: PersistentArtworkDependencyCache = .shared,
+        mediaCache: DownloadableMediaCache = .shared
+    ) {
         self.artworkDependencyCache = artworkDependencyCache
+        self.mediaCache = mediaCache
         super.init(nibName: nil, bundle: nil)
         currentDisplay = self
         renderCurrentItem()
@@ -37,6 +43,7 @@ class ExternalDisplayViewController: UIViewController {
 
     isolated deinit {
         artworkResizeTask?.cancel()
+        htmlDocumentTask?.cancel()
     }
     
     override func viewDidLoad() {
@@ -48,6 +55,17 @@ class ExternalDisplayViewController: UIViewController {
         super.viewWillAppear(animated)
         willOrDidAppear = true
         renderCurrentItem()
+    }
+
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        willOrDidAppear = false
+        artworkResizeTask?.cancel()
+        if htmlDocumentTask != nil {
+            htmlDocumentTask?.cancel()
+            htmlDocumentTask = nil
+            renderedTokenKey = ""
+        }
     }
 
     override func viewDidLayoutSubviews() {
@@ -113,13 +131,45 @@ class ExternalDisplayViewController: UIViewController {
 
         artworkResizeTask?.cancel()
         artworkResizeTask = nil
+        htmlDocumentTask?.cancel()
+        htmlDocumentTask = nil
         renderedTokenKey = tokenKey
         if let nativeRenderKind = currentToken.nativeMetalCardRenderKind {
             renderNativeMetalCard(currentToken, renderKind: nativeRenderKind)
         } else if case .staticImage = currentToken.media {
             renderImage(currentToken, tokenKey: tokenKey)
+        } else if case .html = currentToken.media {
+            renderHTMLDocument(currentToken, tokenKey: tokenKey)
         } else {
             renderWebContent(currentToken.html)
+        }
+    }
+
+    private func renderHTMLDocument(_ token: GeneratedToken, tokenKey: String) {
+        renderWebContent(token.html)
+        guard let descriptor = CollectionCatalog.downloadableMediaDescriptor(
+            for: CollectionCatalog.tokenContext(for: token)
+        ) else { return }
+
+        let mediaCache = mediaCache
+        htmlDocumentTask = Task { @MainActor [weak self] in
+            guard !Task.isCancelled else { return }
+            let lease = mediaCache.fileLease(for: descriptor)
+            defer {
+                lease.release()
+                if !Task.isCancelled, self?.renderedTokenKey == tokenKey {
+                    self?.htmlDocumentTask = nil
+                }
+            }
+            guard let fileURL = await mediaCache.file(for: descriptor), !Task.isCancelled else { return }
+            let sourceURL = await mediaCache.downloadedSourceURL(for: descriptor)
+            guard !Task.isCancelled,
+                  let document = await DownloadableTokenHTML.renderDocument(
+                    at: fileURL, baseURL: sourceURL.absoluteString
+                  ),
+                  !Task.isCancelled,
+                  let self, self.renderedTokenKey == tokenKey else { return }
+            self.renderWebContent(document.html)
         }
     }
 

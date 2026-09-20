@@ -62,7 +62,7 @@ final class PersistentArtworkDependencyCacheTests: XCTestCase {
     private func descriptor(_ data: Data) -> PersistentArtworkDependency {
         PersistentArtworkDependency(
             collectionId: PersistentArtworkDependency.hypertype.collectionId,
-            remoteURL: URL(string: "https://example.test/hypertype/dependency.js")!,
+            remoteURL: URL(string: "https://cdn.lil.org/test/hypertype/dependency.js")!,
             expectedByteCount: data.count,
             sha256: SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
         )
