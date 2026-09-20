@@ -627,52 +627,6 @@
     "hasUniformAspectRatio": true
   },
   {
-    "name": "Bokeh",
-    "address": "0xab0000000000aa06f89b268d604a9c1c41524ac6",
-    "abId": "496",
-    "chain": "ethereum",
-    "chainId": 1,
-    "internal_slug": "bokeh",
-    "artists": [
-      "mpkoz"
-    ],
-    "tokenCount": 300,
-    "standardThumbsPathsAvailable": true,
-    "hasCover": true,
-    "bundledDate": "2026-09-14",
-    "urlPrefix": "https://cdn.lil.org/player/bokeh/",
-    "aspectRatio": [
-      9,
-      16
-    ],
-    "hasMid": true,
-    "bundledTokenCount": 300,
-    "hasUniformAspectRatio": true
-  },
-  {
-    "name": "Glass",
-    "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
-    "abId": "344",
-    "chain": "ethereum",
-    "chainId": 1,
-    "internal_slug": "glass",
-    "artists": [
-      "eric_de_giuli"
-    ],
-    "tokenCount": 300,
-    "standardThumbsPathsAvailable": true,
-    "hasCover": true,
-    "bundledDate": "2026-09-14",
-    "urlPrefix": "https://cdn.lil.org/player/glass/",
-    "aspectRatio": [
-      4,
-      5
-    ],
-    "hasMid": true,
-    "bundledTokenCount": 300,
-    "hasUniformAspectRatio": true
-  },
-  {
     "name": "Memory Loss",
     "address": "0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8",
     "abId": "13",
@@ -696,121 +650,6 @@
     "hasUniformAspectRatio": true
   },
   {
-    "name": "Primavera",
-    "address": "0x000019bd92633e9e00dc08adb0d0dffb00a1fe2a",
-    "abId": "0",
-    "chain": "ethereum",
-    "chainId": 1,
-    "internal_slug": "primavera",
-    "artists": [
-      "baret_lavida"
-    ],
-    "tokenCount": 70,
-    "standardThumbsPathsAvailable": true,
-    "hasCover": true,
-    "bundledDate": "2026-09-14",
-    "urlPrefix": "https://cdn.lil.org/player/primavera/",
-    "aspectRatio": [
-      9,
-      16
-    ],
-    "hasMid": true,
-    "bundledTokenCount": 70,
-    "hasUniformAspectRatio": false
-  },
-  {
-    "name": "Subtraction, Reconfiguration",
-    "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
-    "abId": "65",
-    "chain": "ethereum",
-    "chainId": 1,
-    "internal_slug": "subtraction_reconfiguration",
-    "artists": [
-      "juan_pedro_vallejo"
-    ],
-    "tokenCount": 100,
-    "standardThumbsPathsAvailable": true,
-    "hasCover": true,
-    "bundledDate": "2026-09-14",
-    "urlPrefix": "https://cdn.lil.org/player/subtraction_reconfiguration/",
-    "aspectRatio": [
-      4,
-      5
-    ],
-    "hasMid": true,
-    "bundledTokenCount": 100,
-    "hasUniformAspectRatio": true
-  },
-  {
-    "name": "Talim",
-    "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
-    "abId": "233",
-    "chain": "ethereum",
-    "chainId": 42161,
-    "internal_slug": "talim",
-    "artists": [
-      "jonny_baho"
-    ],
-    "tokenCount": 99,
-    "standardThumbsPathsAvailable": true,
-    "hasCover": true,
-    "bundledDate": "2026-09-14",
-    "urlPrefix": "https://cdn.lil.org/player/talim/",
-    "aspectRatio": [
-      3,
-      4
-    ],
-    "hasMid": true,
-    "bundledTokenCount": 99,
-    "hasUniformAspectRatio": true
-  },
-  {
-    "name": "The Colors That Heal",
-    "address": "0xeafe7b73a3cfa804b761debcf077d4574588dfe7",
-    "abId": "0",
-    "chain": "ethereum",
-    "chainId": 1,
-    "internal_slug": "the_colors_that_heal",
-    "artists": [
-      "ryan_green"
-    ],
-    "tokenCount": 142,
-    "standardThumbsPathsAvailable": true,
-    "hasCover": true,
-    "bundledDate": "2026-09-14",
-    "urlPrefix": "https://cdn.lil.org/player/the_colors_that_heal/",
-    "aspectRatio": [
-      3,
-      4
-    ],
-    "hasMid": true,
-    "bundledTokenCount": 142,
-    "hasUniformAspectRatio": true
-  },
-  {
-    "name": "Twos",
-    "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
-    "abId": "469",
-    "chain": "ethereum",
-    "chainId": 1,
-    "internal_slug": "twos",
-    "artists": [
-      "emily_edelman"
-    ],
-    "tokenCount": 64,
-    "standardThumbsPathsAvailable": true,
-    "hasCover": true,
-    "bundledDate": "2026-09-14",
-    "urlPrefix": "https://cdn.lil.org/player/twos/",
-    "aspectRatio": [
-      5,
-      6
-    ],
-    "hasMid": true,
-    "bundledTokenCount": 64,
-    "hasUniformAspectRatio": true
-  },
-  {
     "name": "Whispering Sands",
     "address": "0x7c3ea2b7b3befa1115ab51c09f0c9f245c500b18",
     "abId": "28",
@@ -831,29 +670,6 @@
     ],
     "hasMid": true,
     "bundledTokenCount": 100,
-    "hasUniformAspectRatio": true
-  },
-  {
-    "name": "Windwoven",
-    "address": "0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8",
-    "abId": "12",
-    "chain": "ethereum",
-    "chainId": 1,
-    "internal_slug": "windwoven",
-    "artists": [
-      "radix"
-    ],
-    "tokenCount": 110,
-    "standardThumbsPathsAvailable": true,
-    "hasCover": true,
-    "bundledDate": "2026-09-14",
-    "urlPrefix": "https://cdn.lil.org/player/windwoven/",
-    "aspectRatio": [
-      3,
-      4
-    ],
-    "hasMid": true,
-    "bundledTokenCount": 110,
     "hasUniformAspectRatio": true
   }
 ]
