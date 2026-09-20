@@ -48,6 +48,7 @@ let package = Package(
                 "Models/CompactTokenManifest.swift",
                 "Models/BundledMediaResolver.swift",
                 "Models/CollectionBrowserConfiguration.swift",
+                "Models/CollectionPlatformAvailability.swift",
                 "Models/MobilePlayerBrowserLayout.swift",
                 "Models/PlayerBrowserGridCrossfade.swift",
                 "Models/PlayerBrowserGridSourceCoverage.swift",

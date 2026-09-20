@@ -42,6 +42,22 @@ final class WidgetArtworkTests: XCTestCase {
         XCTAssertEqual(fallback.bundledResourceName, "contract42")
     }
 
+    func testCollectionAvailabilityMatchesHostPlatform() throws {
+        let restricted = try collection(["iosOnly": true, "generativeOnly": true])
+        XCTAssertTrue(restricted.isAvailable(on: .iOS))
+        XCTAssertFalse(restricted.isAvailable(on: .macOS))
+        XCTAssertFalse(restricted.isAvailable(on: .visionOS))
+        XCTAssertTrue(try collection(["iosOnly": true]).isAvailable(on: .macOS))
+
+        let disabledRenderer = try collection([
+            "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
+            "abId": "250",
+        ])
+        XCTAssertTrue(disabledRenderer.isAvailable(on: .iOS))
+        XCTAssertTrue(disabledRenderer.isAvailable(on: .macOS))
+        XCTAssertFalse(disabledRenderer.isAvailable(on: .visionOS))
+    }
+
     func testMidUsesPreservedFilenameForStaticAndAnimatedMedia() throws {
         let collection = try collection(["standardThumbsPathsAvailable": true])
         for fileExtension in ["png", "jpg", "jpeg", "webp", "gif", "svg", "mp4", "html"] {
@@ -175,9 +191,10 @@ final class WidgetArtworkTests: XCTestCase {
             {"version":2,"count":2,"ids":["token-a","token-b"],"urlTemplate":{"value":"index1","suffix":".gif"}}
             """.utf8))
         let collection = try collection(["standardThumbsPathsAvailable": true])
-        XCTAssertEqual(payload.items.map(\.id), ["token-a", "token-b"])
-        XCTAssertEqual(payload.items.map(\.urlSuffix), ["1.gif", "2.gif"])
-        let references = payload.items.compactMap { $0.staticImageReference(collection: collection) }
+        let items = (0..<payload.count).map { payload.item(at: $0) }
+        XCTAssertEqual(items.map(\.id), ["token-a", "token-b"])
+        XCTAssertEqual(items.map(\.urlSuffix), ["1.gif", "2.gif"])
+        let references = items.compactMap { $0.staticImageReference(collection: collection) }
         XCTAssertEqual(references.map(\.tokenId), ["token-a", "token-b"])
         XCTAssertEqual(references.map(\.url.absoluteString), [
             "https://cdn.example.com/artwork/mid/1.webp",
@@ -190,9 +207,117 @@ final class WidgetArtworkTests: XCTestCase {
             {"version":2,"count":1,"firstId":"1000000","urlSuffix":["0007.png"]}
             """.utf8))
         let collection = try collection(["standardThumbsPathsAvailable": true])
-        let reference = try XCTUnwrap(payload.items.first?.staticImageReference(collection: collection))
+        XCTAssertEqual(payload.count, 1)
+        let reference = try XCTUnwrap(payload.item(at: 0).staticImageReference(collection: collection))
         XCTAssertEqual(reference.tokenId, "1000000")
         XCTAssertEqual(reference.url.absoluteString, "https://cdn.example.com/artwork/mid/0007.webp")
+    }
+
+    func testGenerativeMidUsesManifestPositionsAndPreservesTokenIDs() throws {
+        let collection = try collection([
+            "internal_slug": "generative_art",
+            "script": ["kind": "p5js100"],
+        ])
+        let cases: [(String, [String])] = [
+            (#"{"version":2,"count":2,"firstId":"123000007"}"#, ["123000007", "123000008"]),
+            (#"{"version":2,"count":2,"ids":["mint-b","mint-a"],"urlSuffix":[null,null]}"#, ["mint-b", "mint-a"]),
+        ]
+        for (json, ids) in cases {
+            let payload = try JSONDecoder().decode(WidgetTokenPayload.self, from: Data(json.utf8))
+            let items = (0..<payload.count).map { payload.item(at: $0) }
+            let references = items.compactMap { $0.staticImageReference(collection: collection) }
+            XCTAssertEqual(items.map(\.sourceIndex), [0, 1])
+            XCTAssertEqual(references.map(\.tokenId), ids)
+            XCTAssertEqual(references.map(\.url.absoluteString), [
+                "https://cdn.lil.org/player/generative_art/mid/0.webp",
+                "https://cdn.lil.org/player/generative_art/mid/1.webp",
+            ])
+        }
+    }
+
+    func testGenerativeMidPreservesExplicitSourcesAndDoesNotReplaceFailures() throws {
+        let collection = try collection([
+            "urlPrefix": "",
+            "internal_slug": "generative_art",
+            "script": ["kind": "js"],
+            "standardThumbsPathsAvailable": true,
+        ])
+        let payload = try JSONDecoder().decode(WidgetTokenPayload.self, from: Data("""
+            {"version":2,"count":3,"ids":["explicit","invalid","generated"],
+            "urlSuffix":["https://cdn.example.com/artwork/0007.png","file:///0008.png",null]}
+            """.utf8))
+        XCTAssertNil(payload.item(at: 1).staticImageReference(collection: collection))
+        let references = (0..<payload.count).compactMap {
+            payload.item(at: $0).staticImageReference(collection: collection)
+        }
+        XCTAssertEqual(references.map(\.tokenId), ["explicit", "generated"])
+        XCTAssertEqual(references.map(\.url.absoluteString), [
+            "https://cdn.example.com/artwork/mid/0007.webp",
+            "https://cdn.lil.org/player/generative_art/mid/2.webp",
+        ])
+    }
+
+    func testGenerativeMidRequiresValidSlugAndSourceIndexWithoutProxyFallback() throws {
+        let fields: [String: Any] = [
+            "chain": "ethereum",
+            "internal_slug": "generative_art",
+            "script": ["kind": "js"],
+            "standardThumbsPathsAvailable": true,
+        ]
+        let collection = try collection(fields)
+        for index: Int? in [nil, -1] {
+            XCTAssertNil(WidgetTokenItem(id: "123000007", urlSuffix: nil, sourceIndex: index)
+                .staticImageReference(collection: collection))
+        }
+        let invalidSlugs: [Any] = [
+            NSNull(), "", "../artwork", "UPPERCASE", "art-work", "_artwork", "art__work",
+            String(repeating: "a", count: 121),
+        ]
+        for slug in invalidSlugs {
+            var invalidFields = fields
+            invalidFields["internal_slug"] = slug
+            XCTAssertNil(WidgetTokenItem(id: "123000007", urlSuffix: nil, sourceIndex: 0)
+                .staticImageReference(collection: try self.collection(invalidFields)))
+        }
+    }
+
+    func testMissingEmptyAndNativeScriptsKeepExistingMediaPolicy() throws {
+        let scripts: [Any] = [NSNull(), ["kind": ""], ["kind": "native.card-nft-2"]]
+        let token = WidgetTokenItem(id: "123000007", urlSuffix: nil, sourceIndex: 0)
+        for script in scripts {
+            var fields: [String: Any] = [
+                "address": "0xcontract",
+                "chain": "ethereum",
+                "internal_slug": "generative_art",
+                "script": script,
+            ]
+            XCTAssertNil(token.staticImageReference(collection: try collection(fields)))
+            fields["standardThumbsPathsAvailable"] = true
+            XCTAssertEqual(
+                token.staticImageReference(collection: try collection(fields))?.url.absoluteString,
+                "https://media-proxy.artblocks.io/0xcontract/mid/123000007.webp"
+            )
+        }
+    }
+
+    func testGenerativeCollectionWithoutMidKeepsOriginalStaticSources() throws {
+        let collection = try collection([
+            "address": "0xcontract",
+            "chain": "ethereum",
+            "internal_slug": "generative_art",
+            "script": ["kind": "js"],
+            "hasMid": false,
+        ])
+        XCTAssertEqual(
+            WidgetTokenItem(id: "123000007", urlSuffix: nil, sourceIndex: 0)
+                .staticImageReference(collection: collection)?.url.absoluteString,
+            "https://media-proxy.artblocks.io/0xcontract/123000007.png"
+        )
+        XCTAssertEqual(
+            WidgetTokenItem(id: "123000007", urlSuffix: "0007.png", sourceIndex: 0)
+                .staticImageReference(collection: collection)?.url.absoluteString,
+            "https://cdn.example.com/artwork/0007.png"
+        )
     }
 
     func testCacheCodecRoundTripsCurrentVersionAndNormalizesEmptyTokenID() throws {

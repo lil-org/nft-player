@@ -57,34 +57,6 @@ nonisolated enum TokenGenerator {
         }
     }
 
-    private static let platformDisabledCollectionIds: Set<String> = {
-#if os(visionOS)
-        return Set([
-            "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce367650",
-            "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270250",
-            "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270356",
-            "0x99a9b7c1116f9ceeb1652de04d5969cce509b069472",
-            "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce367667",
-        ])
-#elseif os(tvOS)
-        return Set([
-            "0x99a9b7c1116f9ceeb1652de04d5969cce509b069472",
-            "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270356",
-            "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270250",
-        ])
-#else
-        return Set<String>()
-#endif
-    }()
-
-    private static let disablesNativeRenderersOnCurrentPlatform: Bool = {
-#if os(watchOS) || os(visionOS) || os(tvOS)
-        return true
-#else
-        return false
-#endif
-    }()
-
     private static let generativeCollectionIds: Set<String> = {
         Set(SuggestedItemsService.allItems.compactMap { item in
             guard let metadata = item.script,
@@ -152,14 +124,11 @@ nonisolated enum TokenGenerator {
     }
 
     static func isCollectionDisabledOnCurrentPlatform(id: String) -> Bool {
-        if !SuggestedItemsService.isCollectionAvailableOnCurrentPlatform(id: id)
-            || platformDisabledCollectionIds.contains(id) {
-            return true
-        }
-        guard disablesNativeRenderersOnCurrentPlatform else {
-            return false
-        }
-        return nativeRendererCollectionIds.contains(id)
+        !SuggestedItemsService.isCollectionAvailableOnCurrentPlatform(id: id)
+            || !CollectionPlatformAvailability.isRendererAvailable(
+                collectionId: id,
+                isNative: nativeRendererCollectionIds.contains(id)
+            )
     }
 
     static let allGenerativeSuggestedItems = SuggestedItemsService.visibleItems.filter {

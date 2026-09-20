@@ -24,9 +24,6 @@ nonisolated enum CollectionOfTheDayWidgetData {
     private static let collectionsById = eligibleCollections.reduce(into: [String: WidgetCollection]()) { result, item in
         result[item.id] = result[item.id] ?? item
     }
-    private static let staticImageReferenceCache = OSAllocatedUnfairLock(
-        initialState: [String: [WidgetStaticImageReference]]()
-    )
     private static let imageCacheLock = OSAllocatedUnfairLock(initialState: ())
 
     static func collection(for date: Date = Date(), calendar: Calendar? = nil) -> WidgetCollection? {
@@ -113,10 +110,6 @@ nonisolated enum CollectionOfTheDayWidgetData {
 
     static func retryDate(after date: Date) -> Date {
         date.addingTimeInterval(retryInterval)
-    }
-
-    static func randomStaticImageReference(collection: WidgetCollection) async -> WidgetStaticImageReference? {
-        await staticImageReferences(collection: collection).randomElement()
     }
 
     static func cachedImage(collectionId: String) -> WidgetCachedImage? {
@@ -214,25 +207,17 @@ nonisolated enum CollectionOfTheDayWidgetData {
             return []
         }
 
-        return items
+        return items.filter { $0.isAvailable() }
     }
 
     @concurrent
-    private static func staticImageReferences(collection: WidgetCollection) async -> [WidgetStaticImageReference] {
-        if let cached = staticImageReferenceCache.withLock({ $0[collection.id] }) {
-            return cached
-        }
+    static func randomStaticImageReference(collection: WidgetCollection) async -> WidgetStaticImageReference? {
         do {
             let data = try await PersistentCollectionTokenCache.shared.data(for: collection.bundledResourceName)
             let payload = try JSONDecoder().decode(WidgetTokenPayload.self, from: data)
-            let references = payload.items.compactMap { $0.staticImageReference(collection: collection) }
-            return staticImageReferenceCache.withLock { cache in
-                if let cached = cache[collection.id] { return cached }
-                cache[collection.id] = references
-                return references
-            }
+            return payload.randomStaticImageReference(collection: collection)
         } catch {
-            return []
+            return nil
         }
     }
 

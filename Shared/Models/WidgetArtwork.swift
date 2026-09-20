@@ -11,6 +11,9 @@ nonisolated struct WidgetCollection: Decodable, Hashable, Sendable {
     let standardThumbsPathsAvailable: Bool
     let standardThumbsBaseURL: String?
     private let chain: WidgetCollectionChain
+    private let script: WidgetCollectionScript?
+    private let iosOnly: Bool?
+    private let generativeOnly: Bool?
 
     enum CodingKeys: String, CodingKey {
         case address
@@ -23,6 +26,9 @@ nonisolated struct WidgetCollection: Decodable, Hashable, Sendable {
         case standardThumbsPathsAvailable
         case standardThumbsBaseURL
         case chain
+        case script
+        case iosOnly
+        case generativeOnly
     }
 
     init(from decoder: Decoder) throws {
@@ -39,6 +45,9 @@ nonisolated struct WidgetCollection: Decodable, Hashable, Sendable {
         ) ?? false
         standardThumbsBaseURL = try container.decodeIfPresent(String.self, forKey: .standardThumbsBaseURL)
         chain = try container.decode(WidgetCollectionChain.self, forKey: .chain)
+        script = try container.decodeIfPresent(WidgetCollectionScript.self, forKey: .script)
+        iosOnly = try container.decodeIfPresent(Bool.self, forKey: .iosOnly)
+        generativeOnly = try container.decodeIfPresent(Bool.self, forKey: .generativeOnly)
 
         let decodedName = try container.decodeIfPresent(String.self, forKey: .name)?
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -62,6 +71,20 @@ nonisolated struct WidgetCollection: Decodable, Hashable, Sendable {
     var usesEthereumMediaProxyFallback: Bool {
         chain == .ethereum
     }
+
+    func isAvailable(on platform: CollectionPlatformAvailability.Platform = .current) -> Bool {
+        CollectionPlatformAvailability.isAvailable(iosOnly: iosOnly, generativeOnly: generativeOnly, on: platform)
+            && CollectionPlatformAvailability.isRendererAvailable(
+                collectionId: id,
+                isNative: script?.kind.hasPrefix("native.") == true,
+                on: platform
+            )
+    }
+
+    fileprivate var hasWebGenerativeScript: Bool {
+        guard let kind = script?.kind else { return false }
+        return !kind.isEmpty && !kind.hasPrefix("native.")
+    }
 }
 
 nonisolated struct WidgetStaticImageReference: Hashable, Sendable {
@@ -79,23 +102,76 @@ nonisolated private enum WidgetCollectionChain: Decodable, Hashable, Sendable {
     }
 }
 
-nonisolated struct WidgetTokenPayload: Decodable, Sendable {
-    let items: [WidgetTokenItem]
+nonisolated private struct WidgetCollectionScript: Decodable, Hashable, Sendable {
+    let kind: String
+}
+
+nonisolated struct WidgetTokenPayload: Decodable {
+    private let manifest: CompactTokenManifest
 
     init(from decoder: Decoder) throws {
-        let manifest = try CompactTokenManifest(from: decoder)
-        items = (0..<manifest.count).map { index in
-            let id = manifest.id(at: index)
-            return WidgetTokenItem(id: id, urlSuffix: manifest.urlSuffix(at: index, id: id))
+        manifest = try CompactTokenManifest(from: decoder)
+    }
+
+    var count: Int { manifest.count }
+
+    func item(at index: Int) -> WidgetTokenItem {
+        let id = manifest.id(at: index)
+        return WidgetTokenItem(
+            id: id,
+            urlSuffix: manifest.urlSuffix(at: index, id: id),
+            sourceIndex: index
+        )
+    }
+
+    func randomStaticImageReference(collection: WidgetCollection) -> WidgetStaticImageReference? {
+        var generator = SystemRandomNumberGenerator()
+        return randomStaticImageReference(collection: collection, using: &generator)
+    }
+
+    func randomStaticImageReference<G: RandomNumberGenerator>(
+        collection: WidgetCollection,
+        using generator: inout G
+    ) -> WidgetStaticImageReference? {
+        var remainingCount = count
+        var swaps = [Int: Int]()
+        while remainingCount > 0 {
+            let position = Int.random(in: 0..<remainingCount, using: &generator)
+            let index = swaps[position] ?? position
+            if let reference = item(at: index).staticImageReference(collection: collection) {
+                return reference
+            }
+            remainingCount -= 1
+            swaps[position] = swaps[remainingCount] ?? remainingCount
+            swaps[remainingCount] = nil
         }
+        return nil
     }
 }
 
 nonisolated struct WidgetTokenItem: Decodable, Hashable, Sendable {
     let id: String
     let urlSuffix: String?
+    let sourceIndex: Int?
+
+    init(id: String, urlSuffix: String?, sourceIndex: Int? = nil) {
+        self.id = id
+        self.urlSuffix = urlSuffix
+        self.sourceIndex = sourceIndex
+    }
 
     func staticImageReference(collection: WidgetCollection) -> WidgetStaticImageReference? {
+        if urlSuffix == nil, collection.hasMid, collection.hasWebGenerativeScript {
+            guard let slug = collection.internalSlug,
+                  slug.count <= 120,
+                  slug.range(of: "\\A[a-z0-9]+(?:_[a-z0-9]+)*\\z", options: .regularExpression) != nil,
+                  let sourceIndex, sourceIndex >= 0,
+                  let url = URL(string: "https://cdn.lil.org/player/\(slug)/mid/\(sourceIndex).webp") else {
+                return nil
+            }
+            return WidgetStaticImageReference(tokenId: id, url: url)
+        }
+
         guard let urlString = resolvedURLString(collection: collection),
               let resolved = BundledMediaResolver.resolve(urlString),
               let components = URLComponents(url: resolved.url, resolvingAgainstBaseURL: false),

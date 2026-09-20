@@ -137,12 +137,11 @@ nonisolated enum SuggestedItemsService {
     }
 
     static func isCollectionAvailableOnCurrentPlatform(id: String) -> Bool {
-#if os(iOS)
-        return true
-#else
         guard let item = item(id: id) else { return true }
-        return item.iosOnly != true || item.generativeOnly != true
-#endif
+        return CollectionPlatformAvailability.isAvailable(
+            iosOnly: item.iosOnly,
+            generativeOnly: item.generativeOnly
+        )
     }
 
     static func artists(forCollectionId collectionId: String) -> [SuggestedArtist] {
