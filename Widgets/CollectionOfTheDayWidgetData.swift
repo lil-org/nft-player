@@ -13,17 +13,6 @@ typealias WidgetPlatformImage = NSImage
 #endif
 
 nonisolated enum CollectionOfTheDayWidgetData {
-    struct CachedImage: Sendable {
-        let data: Data
-        let tokenId: String?
-    }
-
-    private struct CachedImageRecord: Codable, Sendable {
-        let version: Int
-        let data: Data
-        let tokenId: String?
-    }
-
     static let tojibaCPUCorpCollectionId = "AU9F91RsrqQEeN8sshErtQnT8CgYxrg9YD9n4AHHvus7"
     static let defaultSelectedCollectionId = "0x30f9efa712dde239a13a5fef1a8c7a6ac530a26d"
 
@@ -31,7 +20,6 @@ nonisolated enum CollectionOfTheDayWidgetData {
     private static let imageScale: CGFloat = 3
     private static let minimumImagePixelSize = 512
     private static let maximumImagePixelSize = 1_600
-    private static let cachedImageRecordVersion = 1
     private static let eligibleCollections = catalogCollections()
     private static let collectionsById = eligibleCollections.reduce(into: [String: WidgetCollection]()) { result, item in
         result[item.id] = result[item.id] ?? item
@@ -131,27 +119,14 @@ nonisolated enum CollectionOfTheDayWidgetData {
         await staticImageReferences(collection: collection).randomElement()
     }
 
-    static func cachedImage(collectionId: String) -> CachedImage? {
+    static func cachedImage(collectionId: String) -> WidgetCachedImage? {
         let fileURL = cacheURL(collectionId: collectionId)
-        let tokenIdURL = cacheTokenIdURL(collectionId: collectionId)
-        return imageCacheLock.withLock { () -> CachedImage? in
-            guard let storedData = try? Data(contentsOf: fileURL) else {
+        return imageCacheLock.withLock { () -> WidgetCachedImage? in
+            guard let storedData = try? Data(contentsOf: fileURL),
+                  let cachedImage = WidgetImageCacheCodec.decode(storedData),
+                  isValidImageData(cachedImage.data) else {
                 return nil
             }
-
-            let cachedImage: CachedImage
-            if let record = try? PropertyListDecoder().decode(
-                CachedImageRecord.self,
-                from: storedData
-            ), record.version == cachedImageRecordVersion {
-                cachedImage = CachedImage(data: record.data, tokenId: record.tokenId)
-            } else {
-                cachedImage = CachedImage(
-                    data: storedData,
-                    tokenId: cachedTokenId(at: tokenIdURL)
-                )
-            }
-            guard isValidImageData(cachedImage.data) else { return nil }
             return cachedImage
         }
     }
@@ -192,14 +167,11 @@ nonisolated enum CollectionOfTheDayWidgetData {
     static func cacheImageData(_ data: Data, collectionId: String, tokenId: String?) async {
         let fileURL = cacheURL(collectionId: collectionId)
         let tokenIdURL = cacheTokenIdURL(collectionId: collectionId)
-        let record = CachedImageRecord(
-            version: cachedImageRecordVersion,
+        let image = WidgetCachedImage(
             data: data,
-            tokenId: tokenId?.isEmpty == false ? tokenId : nil
+            tokenId: tokenId
         )
-        let encoder = PropertyListEncoder()
-        encoder.outputFormat = .binary
-        guard let recordData = try? encoder.encode(record) else { return }
+        guard let recordData = WidgetImageCacheCodec.encode(image) else { return }
 
         imageCacheLock.withLock {
             do {
@@ -278,15 +250,6 @@ nonisolated enum CollectionOfTheDayWidgetData {
         try? FileManager.default.removeItem(at: url)
     }
 
-    private static func cachedTokenId(at url: URL) -> String? {
-        guard let tokenId = try? String(contentsOf: url, encoding: .utf8)
-            .trimmingCharacters(in: .whitespacesAndNewlines),
-              !tokenId.isEmpty else {
-            return nil
-        }
-        return tokenId
-    }
-
     private static var localGregorianCalendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .current
@@ -331,115 +294,5 @@ nonisolated enum CollectionOfTheDayWidgetData {
             hash &*= 1_099_511_628_211
         }
         return hash
-    }
-}
-
-nonisolated struct WidgetCollection: Decodable, Hashable, Sendable {
-    let address: String
-    let internalSlug: String?
-    let collectionId: String?
-    let abId: String?
-    let name: String
-    let hasCover: Bool
-    let urlPrefix: String?
-    private let chain: WidgetCollectionChain
-
-    enum CodingKeys: String, CodingKey {
-        case address
-        case internalSlug = "internal_slug"
-        case collectionId
-        case abId
-        case name
-        case hasCover
-        case urlPrefix
-        case chain
-    }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        address = try container.decode(String.self, forKey: .address)
-        internalSlug = try container.decodeIfPresent(String.self, forKey: .internalSlug)
-        collectionId = try container.decodeIfPresent(String.self, forKey: .collectionId)
-        abId = try container.decodeIfPresent(String.self, forKey: .abId)
-        hasCover = try container.decodeIfPresent(Bool.self, forKey: .hasCover) ?? true
-        urlPrefix = try container.decodeIfPresent(String.self, forKey: .urlPrefix)
-        chain = try container.decode(WidgetCollectionChain.self, forKey: .chain)
-
-        let decodedName = try container.decodeIfPresent(String.self, forKey: .name)?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        let fallbackName = address + (abId ?? collectionId ?? "")
-        if let decodedName, !decodedName.isEmpty {
-            name = decodedName
-        } else {
-            name = fallbackName
-        }
-    }
-
-    var id: String {
-        address + (abId ?? collectionId ?? "")
-    }
-
-    var bundledResourceName: String {
-        guard let internalSlug, !internalSlug.isEmpty else { return id }
-        return internalSlug
-    }
-
-    var coverAssetName: String {
-        bundledResourceName
-    }
-
-    var usesEthereumMediaProxyFallback: Bool {
-        chain == .ethereum
-    }
-}
-
-nonisolated struct WidgetStaticImageReference: Hashable, Sendable {
-    let tokenId: String
-    let url: URL
-}
-
-nonisolated private enum WidgetCollectionChain: Decodable, Hashable, Sendable {
-    case ethereum
-    case other
-
-    init(from decoder: Decoder) throws {
-        let value = try decoder.singleValueContainer().decode(String.self)
-        self = value == "ethereum" ? .ethereum : .other
-    }
-}
-
-nonisolated private struct WidgetTokenPayload: Decodable, Sendable {
-    let items: [WidgetTokenItem]
-
-    init(from decoder: Decoder) throws {
-        let manifest = try CompactTokenManifest(from: decoder)
-        items = (0..<manifest.count).map { index in
-            let id = manifest.id(at: index)
-            return WidgetTokenItem(id: id, urlSuffix: manifest.urlSuffix(at: index, id: id))
-        }
-    }
-}
-
-nonisolated private struct WidgetTokenItem: Decodable, Hashable, Sendable {
-    let id: String
-    let urlSuffix: String?
-
-    func staticImageReference(collection: WidgetCollection) -> WidgetStaticImageReference? {
-        guard let urlString = resolvedURLString(collection: collection),
-              let resolved = BundledMediaResolver.resolve(urlString),
-              case .staticImage? = resolved.kind else {
-            return nil
-        }
-        return WidgetStaticImageReference(tokenId: id, url: resolved.url)
-    }
-
-    private func resolvedURLString(collection: WidgetCollection) -> String? {
-        if let urlSuffix {
-            return (collection.urlPrefix ?? "") + urlSuffix
-        }
-        if collection.usesEthereumMediaProxyFallback {
-            return "https://media-proxy.artblocks.io/\(collection.address)/\(id).png"
-        }
-        return nil
     }
 }

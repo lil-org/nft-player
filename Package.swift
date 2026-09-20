@@ -63,6 +63,7 @@ let package = Package(
                 "Models/PlayerBookmarkController.swift",
                 "Models/Strings.swift",
                 "Models/WidgetDeepLink.swift",
+                "Models/WidgetArtwork.swift",
                 "Services/PlayerICloudSync.swift",
                 "Services/PersistentArtworkDependencyCache.swift",
                 "Services/PersistentCollectionCoverCache.swift",

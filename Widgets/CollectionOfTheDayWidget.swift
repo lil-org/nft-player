@@ -8,7 +8,6 @@ nonisolated struct CollectionOfTheDayEntry: TimelineEntry, Sendable {
     let date: Date
     let collectionId: String
     let tokenId: String?
-    let coverAssetName: String
     let imageData: Data?
 
     var widgetURL: URL? {
@@ -75,7 +74,7 @@ nonisolated private enum CollectionWidgetTimelineFactory {
         guard let collection = source.collection(for: date) else {
             return emptyEntry(date: date)
         }
-        return await fallbackEntry(collection: collection, date: date)
+        return cachedTokenEntry(collection: collection, date: date)
     }
 
     static func timeline(
@@ -92,7 +91,7 @@ nonisolated private enum CollectionWidgetTimelineFactory {
         }
 
         guard let imageReference = await CollectionOfTheDayWidgetData.randomStaticImageReference(collection: collection) else {
-            return await fallbackTimeline(collection: collection, date: date)
+            return fallbackTimeline(collection: collection, date: date)
         }
 
         let maxPixelSize = CollectionOfTheDayWidgetData.maxImagePixelSize(displaySize: displaySize)
@@ -109,7 +108,7 @@ nonisolated private enum CollectionWidgetTimelineFactory {
                     data,
                     maxPixelSize: maxPixelSize
                   ) else {
-                return await fallbackTimeline(collection: collection, date: date)
+                return fallbackTimeline(collection: collection, date: date)
             }
 
             await CollectionOfTheDayWidgetData.cacheImageData(
@@ -121,7 +120,6 @@ nonisolated private enum CollectionWidgetTimelineFactory {
                 date: date,
                 collectionId: collection.id,
                 tokenId: imageReference.tokenId,
-                coverAssetName: collection.coverAssetName,
                 imageData: imageData
             )
             let nextRotationDate: Date
@@ -135,13 +133,13 @@ nonisolated private enum CollectionWidgetTimelineFactory {
             }
             return Timeline(entries: [entry], policy: .after(nextRotationDate))
         } catch {
-            return await fallbackTimeline(collection: collection, date: date)
+            return fallbackTimeline(collection: collection, date: date)
         }
     }
 
-    private static func fallbackTimeline(collection: WidgetCollection, date: Date) async -> Timeline<CollectionOfTheDayEntry> {
+    private static func fallbackTimeline(collection: WidgetCollection, date: Date) -> Timeline<CollectionOfTheDayEntry> {
         Timeline(
-            entries: [await fallbackEntry(collection: collection, date: date)],
+            entries: [cachedTokenEntry(collection: collection, date: date)],
             policy: .after(CollectionOfTheDayWidgetData.retryDate(after: date))
         )
     }
@@ -151,7 +149,6 @@ nonisolated private enum CollectionWidgetTimelineFactory {
             date: date,
             collectionId: "",
             tokenId: nil,
-            coverAssetName: "",
             imageData: nil
         )
     }
@@ -162,26 +159,7 @@ nonisolated private enum CollectionWidgetTimelineFactory {
             date: date,
             collectionId: collection.id,
             tokenId: cachedImage?.tokenId,
-            coverAssetName: collection.coverAssetName,
             imageData: cachedImage?.data
-        )
-    }
-
-    @concurrent
-    private static func fallbackEntry(collection: WidgetCollection, date: Date) async -> CollectionOfTheDayEntry {
-        let cachedEntry = cachedTokenEntry(collection: collection, date: date)
-        guard cachedEntry.imageData == nil, collection.hasCover else { return cachedEntry }
-
-        let coverData = try? await PersistentCollectionCoverCache.shared.data(
-            for: collection.coverAssetName,
-            priority: .visible
-        )
-        return CollectionOfTheDayEntry(
-            date: date,
-            collectionId: collection.id,
-            tokenId: nil,
-            coverAssetName: collection.coverAssetName,
-            imageData: coverData
         )
     }
 

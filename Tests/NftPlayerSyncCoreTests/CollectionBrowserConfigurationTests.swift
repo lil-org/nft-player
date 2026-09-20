@@ -52,6 +52,122 @@ final class CollectionBrowserConfigurationTests: XCTestCase {
         )
     }
 
+    func testStandardThumbnailURLMappingPreservesOriginalFilenameAndDirectory() throws {
+        let mappings = [
+            (
+                source: "https://cdn.lil.org/player/archetype/0.png",
+                directory: "https://cdn.lil.org/player/archetype",
+                filename: "0.webp"
+            ),
+            (
+                source: "https://cdn.example.com/collection/nested/00042.JPEG?version=2#preview",
+                directory: "https://cdn.example.com/collection/nested",
+                filename: "00042.webp"
+            ),
+            (
+                source: "https://cdn.example.com/collection/nested/artwork.v2.jpg",
+                directory: "https://cdn.example.com/collection/nested",
+                filename: "artwork.v2.webp"
+            ),
+            (
+                source: "https://cdn.lil.org/player/smm2/002.mp4",
+                directory: "https://cdn.lil.org/player/smm2",
+                filename: "002.webp"
+            ),
+        ]
+
+        for mapping in mappings {
+            let originalURL = try XCTUnwrap(URL(string: mapping.source))
+            let thumbnailURL = try XCTUnwrap(
+                CollectionBrowseImageURLMapping.standardThumbnailURL(for: originalURL)
+            )
+            XCTAssertEqual(
+                thumbnailURL,
+                URL(string: "\(mapping.directory)/thumbs/\(mapping.filename)")
+            )
+            XCTAssertEqual(
+                CollectionBrowseImageURLMapping.midURL(for: thumbnailURL),
+                URL(string: "\(mapping.directory)/mid/\(mapping.filename)")
+            )
+        }
+    }
+
+    func testStandardThumbnailURLMappingUsesCustomBaseAndOriginalStem() throws {
+        for source in [
+            "https://original.example.com/collection/nested/0007.png?version=2#preview",
+            "https://original.example.com/collection/nested/0007",
+        ] {
+            let originalURL = try XCTUnwrap(URL(string: source))
+            let thumbnailURL = try XCTUnwrap(
+                CollectionBrowseImageURLMapping.standardThumbnailURL(
+                    for: originalURL,
+                    standardThumbsBaseURL: "https://cdn.example.com/alternate/thumbs/"
+                )
+            )
+            XCTAssertEqual(
+                thumbnailURL,
+                URL(string: "https://cdn.example.com/alternate/thumbs/0007.webp")
+            )
+            XCTAssertEqual(
+                CollectionBrowseImageURLMapping.midURL(for: thumbnailURL),
+                URL(string: "https://cdn.example.com/alternate/mid/0007.webp")
+            )
+        }
+    }
+
+    func testStandardThumbnailURLMappingRejectsUnsafeOriginalURLs() throws {
+        let unsupportedURLs = [
+            "file:///collection/1.png",
+            "ftp://cdn.example.com/collection/1.png",
+            "https:///collection/1.png",
+            "collection/1.png",
+            "https://cdn.example.com",
+            "https://cdn.example.com/collection/",
+            "https://cdn.example.com/collection/nested%2F1.png",
+            "https://cdn.example.com/collection/nested%5C1.png",
+            "https://cdn.example.com/collection/.",
+            "https://cdn.example.com/collection/..",
+        ]
+
+        for value in unsupportedURLs {
+            let originalURL = try XCTUnwrap(URL(string: value))
+            XCTAssertNil(
+                CollectionBrowseImageURLMapping.standardThumbnailURL(for: originalURL),
+                value
+            )
+            XCTAssertNil(
+                CollectionBrowseImageURLMapping.standardThumbnailURL(
+                    for: originalURL,
+                    standardThumbsBaseURL: "https://cdn.example.com/alternate/thumbs"
+                ),
+                value
+            )
+        }
+
+        XCTAssertNil(CollectionBrowseImageURLMapping.standardThumbnailURL(
+            for: try XCTUnwrap(URL(string: "https://cdn.example.com/collection/1"))
+        ))
+    }
+
+    func testStandardThumbnailURLMappingRejectsInvalidCustomBases() throws {
+        let originalURL = try XCTUnwrap(URL(string: "https://cdn.example.com/collection/1.png"))
+        for base in [
+            "file:///collection/thumbs",
+            "ftp://cdn.example.com/collection/thumbs",
+            "https:///collection/thumbs",
+            "collection/thumbs",
+            "",
+        ] {
+            XCTAssertNil(
+                CollectionBrowseImageURLMapping.standardThumbnailURL(
+                    for: originalURL,
+                    standardThumbsBaseURL: base
+                ),
+                base
+            )
+        }
+    }
+
     func testSizedThumbnailURLMappingAddsWidthAfterThumbsDirectory() throws {
         XCTAssertEqual(CollectionBrowseThumbnailWidth.width140.rawValue, 140)
         XCTAssertEqual(CollectionBrowseThumbnailWidth.width260.rawValue, 260)

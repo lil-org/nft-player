@@ -135,6 +135,60 @@ nonisolated enum CollectionBrowseThumbnailWidth: Int, CaseIterable, Hashable, Se
 }
 
 nonisolated enum CollectionBrowseImageURLMapping: Sendable {
+    static func standardThumbnailURL(
+        for originalURL: URL,
+        standardThumbsBaseURL: String? = nil
+    ) -> URL? {
+        guard var originalURLComponents = URLComponents(
+            url: originalURL,
+            resolvingAgainstBaseURL: false
+        ),
+              let scheme = originalURLComponents.scheme?.lowercased(),
+              scheme == "http" || scheme == "https",
+              originalURLComponents.host?.isEmpty == false,
+              let percentEncodedFileName = originalURLComponents.percentEncodedPath
+                .split(separator: "/", omittingEmptySubsequences: false)
+                .last,
+              !percentEncodedFileName.isEmpty,
+              !percentEncodedFileName.lowercased().contains("%2f"),
+              !percentEncodedFileName.lowercased().contains("%5c") else {
+            return nil
+        }
+
+        originalURLComponents.query = nil
+        originalURLComponents.fragment = nil
+        guard let originalURL = originalURLComponents.url else { return nil }
+
+        let originalStem = originalURL.deletingPathExtension().lastPathComponent
+        guard !originalStem.isEmpty,
+              originalStem != ".",
+              originalStem != "..",
+              !originalStem.contains("/"),
+              !originalStem.contains("\\") else {
+            return nil
+        }
+
+        let thumbnailDirectoryURL: URL
+        if let standardThumbsBaseURL {
+            guard let components = URLComponents(string: standardThumbsBaseURL),
+                  let scheme = components.scheme?.lowercased(),
+                  scheme == "http" || scheme == "https",
+                  components.host?.isEmpty == false,
+                  let baseURL = components.url else {
+                return nil
+            }
+            thumbnailDirectoryURL = baseURL
+        } else {
+            guard !originalURL.pathExtension.isEmpty else { return nil }
+            thumbnailDirectoryURL = originalURL
+                .deletingLastPathComponent()
+                .appendingPathComponent("thumbs", isDirectory: true)
+        }
+
+        return thumbnailDirectoryURL
+            .appendingPathComponent("\(originalStem).webp", isDirectory: false)
+    }
+
     static func smallThumbnailURL(
         for thumbnailURL: URL,
         tokenIndex: Int

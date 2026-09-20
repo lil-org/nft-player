@@ -192,50 +192,11 @@ nonisolated extension CollectionCatalog {
         guard primaryDescriptor.purpose == .primary,
               let suggestedItem = SuggestedItemsService.item(id: primaryDescriptor.collectionId),
               suggestedItem.standardThumbsPathsAvailable == true,
-              var originalURLComponents = URLComponents(
-                url: primaryDescriptor.url,
-                resolvingAgainstBaseURL: false
+              let thumbnailURL = CollectionBrowseImageURLMapping.standardThumbnailURL(
+                for: primaryDescriptor.url,
+                standardThumbsBaseURL: suggestedItem.standardThumbsBaseURL
               ) else {
             return nil
-        }
-
-        originalURLComponents.query = nil
-        originalURLComponents.fragment = nil
-        guard let originalURL = originalURLComponents.url else { return nil }
-
-        let thumbnailURL: URL
-        if let standardThumbsBaseURL = suggestedItem.standardThumbsBaseURL {
-            guard let thumbnailBaseURLComponents = URLComponents(string: standardThumbsBaseURL),
-                  let scheme = thumbnailBaseURLComponents.scheme?.lowercased(),
-                  scheme == "http" || scheme == "https",
-                  thumbnailBaseURLComponents.host?.isEmpty == false,
-                  let thumbnailBaseURL = thumbnailBaseURLComponents.url else {
-                return nil
-            }
-
-            let originalStem = originalURL.deletingPathExtension().lastPathComponent
-            guard !originalStem.isEmpty,
-                  originalStem != "/",
-                  originalStem != ".",
-                  originalStem != ".." else {
-                return nil
-            }
-
-            thumbnailURL = thumbnailBaseURL
-                .appendingPathComponent("\(originalStem).webp", isDirectory: false)
-        } else {
-            let originalStem = originalURL.deletingPathExtension().lastPathComponent
-            guard !originalURL.pathExtension.isEmpty,
-                  !originalStem.isEmpty,
-                  originalStem != ".",
-                  originalStem != ".." else {
-                return nil
-            }
-
-            thumbnailURL = originalURL
-                .deletingLastPathComponent()
-                .appendingPathComponent("thumbs", isDirectory: true)
-                .appendingPathComponent("\(originalStem).webp", isDirectory: false)
         }
 
         return CollectionCatalogDownloadableMediaDescriptor(
