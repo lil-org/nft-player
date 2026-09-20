@@ -838,6 +838,64 @@ nonisolated enum CollectionCatalog {
         .map { CollectionCatalogItem(item: $0) }
     }()
 
+    enum PreparationFailure: Error {
+        case unknownCollection
+        case notCached
+    }
+
+    @concurrent
+    static func prepareCollection(
+        collectionId: String,
+        allowsDownloads: Bool = true,
+        cache: PersistentCollectionTokenCache = .shared
+    ) async throws {
+        try Task.checkCancellation()
+        guard let item = SuggestedItemsService.scriptItem(collectionId: collectionId) else {
+            throw PreparationFailure.unknownCollection
+        }
+        guard let resourceName = SuggestedItemsService.tokenResourceName(collectionId: item.id) else { return }
+        let tokens: BundledTokens
+        if let prepared = SuggestedItemsService.cachedTokens(collectionId: item.id) {
+            tokens = prepared
+        } else {
+            let data: Data
+            if allowsDownloads {
+                data = try await cache.data(for: resourceName)
+            } else {
+                guard let cached = try await cache.cachedData(for: resourceName) else {
+                    throw PreparationFailure.notCached
+                }
+                data = cached
+            }
+            try Task.checkCancellation()
+            tokens = try SuggestedItemsService.installTokens(data, collectionId: item.id)
+        }
+        try Task.checkCancellation()
+        prepareTokenModels(tokens, collectionId: item.id)
+    }
+
+    static func installPreparedTokens(_ data: Data, collectionId: String) throws {
+        guard let item = SuggestedItemsService.scriptItem(collectionId: collectionId) else {
+            throw PreparationFailure.unknownCollection
+        }
+        let tokens = try SuggestedItemsService.installTokens(data, collectionId: item.id)
+        prepareTokenModels(tokens, collectionId: item.id)
+    }
+
+    private static func prepareTokenModels(_ tokens: BundledTokens, collectionId: String) {
+        TokenGenerator.prepareCollection(collectionId: collectionId, tokens: tokens)
+        DownloadableCollectionService.prepareCollection(collectionId: collectionId, tokens: tokens)
+    }
+
+#if DEBUG
+    static func resetPreparedCollectionForTesting(collectionId: String) {
+        guard let item = SuggestedItemsService.scriptItem(collectionId: collectionId) else { return }
+        SuggestedItemsService.removePreparedTokens(collectionId: item.id)
+        TokenGenerator.removePreparedCollection(collectionId: item.id)
+        DownloadableCollectionService.removePreparedCollection(collectionId: item.id)
+    }
+#endif
+
     static func nextShuffledCollectionId() -> String? {
         shuffledCollectionIds.withLock { collectionIds in
             if collectionIds.isEmpty {
@@ -1409,25 +1467,31 @@ nonisolated private enum DownloadableCollectionService {
         )
     }
 
-    private static func tokenData(collectionId: String) -> DownloadableCollectionTokenData? {
-        if let cachedTokenData = cache.withLock({
-            $0.tokenDataByCollectionId[collectionId]
-        }) {
-            return cachedTokenData
+    static func prepareCollection(collectionId: String, tokens: BundledTokens) {
+        guard let collection = index.collectionById[collectionId],
+              cache.withLock({ $0.tokenDataByCollectionId[collectionId] }) == nil else { return }
+        let exclusions = Set(tokens.excludedMediaIndices)
+        let items = tokens.items.enumerated().compactMap { index, token -> DownloadableTokenItem? in
+            guard !exclusions.contains(index) else { return nil }
+            return DownloadableTokenItem(
+                id: token.id, name: token.name, urlSuffix: token.urlSuffix, aspectRatio: token.aspectRatio
+            )
         }
-
-        guard let loadedTokenData = loadTokenData(collectionId: collectionId) else {
-            return nil
-        }
-
-        return cache.withLock { state in
-            if let cachedTokenData = state.tokenDataByCollectionId[collectionId] {
-                return cachedTokenData
-            }
-            state.tokenDataByCollectionId[collectionId] = loadedTokenData
-            return loadedTokenData
+        let tokenData = DownloadableCollectionTokenData(tokens: items, defaultAspectRatio: collection.aspectRatio)
+        cache.withLock { state in
+            state.tokenDataByCollectionId[collectionId] = tokenData
         }
     }
+
+    private static func tokenData(collectionId: String) -> DownloadableCollectionTokenData? {
+        cache.withLock { $0.tokenDataByCollectionId[collectionId] }
+    }
+
+#if DEBUG
+    static func removePreparedCollection(collectionId: String) {
+        _ = cache.withLock { $0.tokenDataByCollectionId.removeValue(forKey: collectionId) }
+    }
+#endif
 
     private static func loadIndex() -> DownloadableCollectionsIndex {
         DownloadableCollectionsIndex(
@@ -1435,18 +1499,7 @@ nonisolated private enum DownloadableCollectionService {
         )
     }
 
-    private static func loadTokenData(collectionId: String) -> DownloadableCollectionTokenData? {
-        guard let collection = index.collectionById[collectionId],
-              let url = SuggestedItemsService.bundledTokensURL(collectionId: collectionId),
-              let data = try? Data(contentsOf: url),
-              let payload = try? DownloadableCollectionTokensPayload(data: data) else {
-            return nil
-        }
-        return DownloadableCollectionTokenData(
-            tokens: payload.downloadableItems,
-            defaultAspectRatio: collection.aspectRatio
-        )
-    }
+
 }
 
 nonisolated private struct DownloadableCollectionsIndex: Sendable {

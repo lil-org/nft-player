@@ -40,6 +40,7 @@ struct VisionCollectionsView: View {
     @State private var immersiveModeRequestID = 0
     @State private var shouldEnableImmersiveModeWhenReady = false
     @State private var playerPresentationGate = PlayerPresentationRequestGate()
+    @State private var collectionPreparation = CollectionPreparationState()
     @State private var hasLoadedViewingProgress = false
     @State private var viewingProgressRefreshID = 0
     @State private var shouldPrewarmAfterViewingProgressRefresh = true
@@ -168,6 +169,7 @@ struct VisionCollectionsView: View {
         }
         .collectionsGridScrollMemoryLifecycleFlush(tracker: gridScrollMemoryTracker)
         .preloadCollectionCovers()
+        .collectionPreparation(collectionPreparation, onCancel: cancelPendingPlayerPresentation)
         .onDisappear {
             cancelPendingPlayerPresentation()
             dismissImmersiveSpaceIfNeeded()
@@ -281,14 +283,15 @@ struct VisionCollectionsView: View {
     }
 
     private func showRandomPlayer() {
+        collectionPreparation.cancel()
         let request = playerPresentationGate.begin()
         Task {
             await PlayerPersistenceUpdates.flush()
-            guard playerPresentationGate.isPending(request) else { return }
+            guard playerPresentationGate.isPending(request), !Task.isCancelled else { return }
             guard let item = await randomCollectionItemPreferringUnfinishedCollections() else { return }
-            guard playerPresentationGate.isPending(request) else { return }
+            guard playerPresentationGate.isPending(request), !Task.isCancelled else { return }
             let progress = await PlayerViewingProgressStore.shared.progress(collectionId: item.id)
-            guard playerPresentationGate.isPending(request) else { return }
+            guard playerPresentationGate.isPending(request), !Task.isCancelled else { return }
             let initialTokenId = progress?.isComplete == false ? progress?.tokenId : nil
             let initialTokenIndex = progress?.isComplete == false ? progress?.tokenIndex : nil
 
@@ -425,6 +428,7 @@ struct VisionCollectionsView: View {
     private func openCollection(collectionId: String) {
         guard isVisibleCollection(collectionId) else { return }
 
+        collectionPreparation.cancel()
         let request = playerPresentationGate.begin()
         Task {
             await openCollection(
@@ -438,18 +442,18 @@ struct VisionCollectionsView: View {
         collectionId: String,
         request: PlayerPresentationRequestGate.Request
     ) async {
-        guard playerPresentationGate.isPending(request) else { return }
+        guard playerPresentationGate.isPending(request), !Task.isCancelled else { return }
         guard isVisibleCollection(collectionId) else { return }
 
         await PlayerPersistenceUpdates.flush()
-        guard playerPresentationGate.isPending(request) else { return }
+        guard playerPresentationGate.isPending(request), !Task.isCancelled else { return }
         if let progress = await PlayerViewingProgressStore.shared.progress(collectionId: collectionId) {
-            guard playerPresentationGate.isPending(request) else { return }
+            guard playerPresentationGate.isPending(request), !Task.isCancelled else { return }
             await resumeViewing(progress, request: request)
             return
         }
 
-        guard playerPresentationGate.isPending(request) else { return }
+        guard playerPresentationGate.isPending(request), !Task.isCancelled else { return }
         await openPlayer(
             initialItemId: collectionId,
             continueViewingCollectionId: collectionId,
@@ -458,6 +462,7 @@ struct VisionCollectionsView: View {
     }
 
     private func resumeViewing(_ progress: PlayerViewingProgress) {
+        collectionPreparation.cancel()
         let request = playerPresentationGate.begin()
         Task {
             await openCollection(
@@ -471,7 +476,7 @@ struct VisionCollectionsView: View {
         _ progress: PlayerViewingProgress,
         request: PlayerPresentationRequestGate.Request
     ) async {
-        guard playerPresentationGate.isPending(request) else { return }
+        guard playerPresentationGate.isPending(request), !Task.isCancelled else { return }
         guard isVisibleCollection(progress.collectionId) else {
             requestViewingProgressRefresh()
             return
@@ -494,6 +499,7 @@ struct VisionCollectionsView: View {
             return
         }
 
+        collectionPreparation.cancel()
         let request = playerPresentationGate.begin()
         let handoffRequest = widgetLaunchPresentationState.beginWidgetPlayerHandoff(for: url)
         Task {
@@ -520,10 +526,23 @@ struct VisionCollectionsView: View {
         tokenId: String,
         request: PlayerPresentationRequestGate.Request
     ) async {
+        guard await collectionPreparation.prepare(
+            collectionId: collectionId,
+            isCurrent: { playerPresentationGate.isPending(request) },
+            retry: {
+                Task {
+                    await openWidgetToken(
+                        collectionId: collectionId,
+                        tokenId: tokenId,
+                        request: request
+                    )
+                }
+            }
+        ) else { return }
         await PlayerPersistenceUpdates.flush()
-        guard playerPresentationGate.isPending(request) else { return }
+        guard playerPresentationGate.isPending(request), !Task.isCancelled else { return }
         let progress = await PlayerViewingProgressStore.shared.progress(collectionId: collectionId)
-        guard playerPresentationGate.isPending(request) else { return }
+        guard playerPresentationGate.isPending(request), !Task.isCancelled else { return }
         guard let widgetTokenInsertion = CollectionCatalog.widgetTokenInsertion(
             collectionId: collectionId,
             widgetTokenId: tokenId,
@@ -536,7 +555,7 @@ struct VisionCollectionsView: View {
             return
         }
 
-        guard playerPresentationGate.isPending(request) else { return }
+        guard playerPresentationGate.isPending(request), !Task.isCancelled else { return }
         await openPlayer(
             initialItemId: collectionId,
             continueViewingCollectionId: collectionId,
@@ -555,15 +574,35 @@ struct VisionCollectionsView: View {
         anchorProgress: PlayerViewingProgress? = nil,
         request: PlayerPresentationRequestGate.Request
     ) async {
-        guard playerPresentationGate.isPending(request) else { return }
+        guard playerPresentationGate.isPending(request), !Task.isCancelled else { return }
         guard isVisibleCollection(continueViewingCollectionId),
               initialItemId.map({ isVisibleCollection($0) }) ?? true else {
             requestViewingProgressRefresh()
             return
         }
+        if widgetTokenInsertion == nil {
+            guard await collectionPreparation.prepare(
+                collectionId: initialItemId ?? continueViewingCollectionId,
+                isCurrent: { playerPresentationGate.isPending(request) },
+                retry: {
+                    Task {
+                        await openPlayer(
+                            initialItemId: initialItemId,
+                            initialTokenId: initialTokenId,
+                            initialTokenIndex: initialTokenIndex,
+                            continueViewingCollectionId: continueViewingCollectionId,
+                            widgetTokenInsertion: widgetTokenInsertion,
+                            anchorProgress: anchorProgress,
+                            request: request
+                        )
+                    }
+                }
+            ) else { return }
+        }
+        guard playerPresentationGate.isPending(request), !Task.isCancelled else { return }
         guard let continueViewingUpdate = await PlayerViewingProgressStore.shared
             .prepareContinueViewingUpdate(collectionId: continueViewingCollectionId),
-              playerPresentationGate.isPending(request) else {
+              playerPresentationGate.isPending(request), !Task.isCancelled else {
             return
         }
 
@@ -591,6 +630,7 @@ struct VisionCollectionsView: View {
     }
 
     private func cancelPendingPlayerPresentation() {
+        collectionPreparation.cancel()
         playerPresentationGate.cancel()
     }
 

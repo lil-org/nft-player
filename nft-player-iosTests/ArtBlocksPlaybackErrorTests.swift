@@ -4,7 +4,7 @@ import WebKit
 import XCTest
 @testable import nft_player_ios
 
-nonisolated final class ArtBlocksPlaybackErrorTests: XCTestCase {}
+nonisolated final class ArtBlocksPlaybackErrorTests: CollectionTokenFixtureTestCase {}
 
 @MainActor
 private final class PlaybackErrorDocumentProbe: NSObject, WKScriptMessageHandler {
@@ -23,7 +23,7 @@ extension ArtBlocksPlaybackErrorTests {
         let token = try XCTUnwrap(TokenGenerator.generateToken(specificCollectionId: collectionId, tokenIndex: 0))
         XCTAssertFalse(token.html.isEmpty)
         XCTAssertNil(token.media)
-        XCTAssertNil(CollectionCatalog.collectionBrowseThumbnailDescriptor(specificCollectionId: collectionId, tokenIndex: 0))
+        XCTAssertNotNil(CollectionCatalog.collectionBrowseThumbnailDescriptor(specificCollectionId: collectionId, tokenIndex: 0))
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
             .first { $0.activationState == .foregroundActive })
         let previousKeyWindow = scene.windows.first { $0.isKeyWindow }

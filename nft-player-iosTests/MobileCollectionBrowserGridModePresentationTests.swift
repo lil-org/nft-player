@@ -6,7 +6,7 @@ import XCTest
 @testable import nft_player_ios
 
 nonisolated final class MobileCollectionBrowserGridModePresentationTests:
-    XCTestCase {}
+    CollectionTokenFixtureTestCase {}
 
 @MainActor
 extension MobileCollectionBrowserGridModePresentationTests {

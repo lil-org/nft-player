@@ -48,6 +48,7 @@ final class MobileCollectionsSessionCoordinator {
         let id = UUID()
         let progressStore: any MobileCollectionsProgressStoring
         let flushPersistenceUpdates: @MainActor () async -> Void
+        let prepareCollection: @MainActor (String) async throws -> Void
         let canOpenCollection: (String) -> Bool
         let makeWidgetTokenInsertion: (
             String,
@@ -63,6 +64,7 @@ final class MobileCollectionsSessionCoordinator {
             flushPersistenceUpdates: {
                 await PlayerPersistenceUpdates.flush()
             },
+            prepareCollection: prepareLiveCollection,
             canOpenCollection: { collectionId in
                 MobileCollectionCatalog.canOpenCollection(
                     specificCollectionId: collectionId
@@ -95,6 +97,10 @@ final class MobileCollectionsSessionCoordinator {
                 Haptic.selectionChanged()
             }
         )
+
+        private static func prepareLiveCollection(_ collectionId: String) async throws {
+            try await CollectionCatalog.prepareCollection(collectionId: collectionId)
+        }
     }
 
     private struct WidgetPlayerHandoff {
@@ -107,6 +113,8 @@ final class MobileCollectionsSessionCoordinator {
     private var dependencies: Dependencies
     private var initialCollectionIdsForPrewarm: () -> [String]
     private let playerPresentationGate = PlayerPresentationRequestGate()
+
+    let collectionPreparation = CollectionPreparationState()
 
     private(set) var playerConfig: MobilePlayerConfig?
     private(set) var playerPresentationTransition:
@@ -163,7 +171,9 @@ final class MobileCollectionsSessionCoordinator {
 
     var isReadyToRevealNavigation: Bool {
         (hasLoadedViewingProgress || playerConfig != nil)
-            && !isPreparingWidgetPlayerPresentation
+            && (!isPreparingWidgetPlayerPresentation
+                || collectionPreparation.isLoading
+                || collectionPreparation.errorMessage != nil)
     }
 
     func update(
@@ -181,6 +191,7 @@ final class MobileCollectionsSessionCoordinator {
         if refreshesProgress || changesWidgetState {
             let pendingWidgetHandoffRequest =
                 pendingWidgetHandoffRequest
+            collectionPreparation.cancel()
             playerPresentationGate.cancel()
             finishPendingWidgetHandoff(pendingWidgetHandoffRequest)
         }
@@ -207,6 +218,7 @@ final class MobileCollectionsSessionCoordinator {
         collectionId: String,
         transition: PlayerPresentationTransition = .animated
     ) -> Task<Bool, Never> {
+        cancel()
         let request = playerPresentationGate.begin()
         return Task { @MainActor in
             return await self.openCollection(
@@ -233,6 +245,7 @@ final class MobileCollectionsSessionCoordinator {
             return nil
         }
 
+        collectionPreparation.cancel()
         let request = playerPresentationGate.begin()
         widgetPlayerHandoff = nil
         let handoffRequest = widgetLaunchPresentationState
@@ -306,7 +319,11 @@ final class MobileCollectionsSessionCoordinator {
 
     func resolutionForPendingPresentationRequest()
         -> (@MainActor (Bool) -> Void)? {
-        playerPresentationGate.resolutionForPendingRequest()
+        playerPresentationGate.resolutionForPendingRequest { [weak self] in
+            guard let self else { return }
+            collectionPreparation.cancel()
+            finishPendingWidgetHandoff(pendingWidgetHandoffRequest)
+        }
     }
 
     func didPresentPlayer(_ config: MobilePlayerConfig) {
@@ -330,6 +347,7 @@ final class MobileCollectionsSessionCoordinator {
     }
 
     func cancel() {
+        collectionPreparation.cancel()
         playerPresentationGate.cancel()
         pendingWidgetHandoffRequest = nil
         widgetPlayerHandoff = nil
@@ -356,11 +374,11 @@ final class MobileCollectionsSessionCoordinator {
         guard visibleCollectionIds.contains(collectionId),
               dependencies.canOpenCollection(collectionId) else { return false }
         await dependencies.flushPersistenceUpdates()
-        guard playerPresentationGate.isPending(request) else { return false }
+        guard playerPresentationGate.isPending(request), !Task.isCancelled else { return false }
         let progress = await dependencies.progressStore.progress(
             collectionId: collectionId
         )
-        guard playerPresentationGate.isPending(request) else { return false }
+        guard playerPresentationGate.isPending(request), !Task.isCancelled else { return false }
         if let progress {
             return await openPlayer(
                 initialItemId: progress.collectionId,
@@ -387,12 +405,28 @@ final class MobileCollectionsSessionCoordinator {
         request: PlayerPresentationRequestGate.Request,
         widgetHandoffRequest: WidgetLaunchPresentationState.Request?
     ) async -> Bool {
+        guard await collectionPreparation.prepare(
+            collectionId: collectionId,
+            operation: dependencies.prepareCollection,
+            isCurrent: { self.playerPresentationGate.isPending(request) },
+            retry: { [weak self] in
+                guard let self else { return }
+                Task {
+                    _ = await self.openWidgetToken(
+                        collectionId: collectionId,
+                        tokenId: tokenId,
+                        request: request,
+                        widgetHandoffRequest: widgetHandoffRequest
+                    )
+                }
+            }
+        ) else { return false }
         await dependencies.flushPersistenceUpdates()
-        guard playerPresentationGate.isPending(request) else { return false }
+        guard playerPresentationGate.isPending(request), !Task.isCancelled else { return false }
         let progress = await dependencies.progressStore.progress(
             collectionId: collectionId
         )
-        guard playerPresentationGate.isPending(request) else { return false }
+        guard playerPresentationGate.isPending(request), !Task.isCancelled else { return false }
         guard let widgetTokenInsertion =
             dependencies.makeWidgetTokenInsertion(
                 collectionId,
@@ -407,7 +441,7 @@ final class MobileCollectionsSessionCoordinator {
             )
         }
 
-        guard playerPresentationGate.isPending(request) else { return false }
+        guard playerPresentationGate.isPending(request), !Task.isCancelled else { return false }
         return await openPlayer(
             initialItemId: collectionId,
             continueViewingCollectionId: collectionId,
@@ -430,13 +464,37 @@ final class MobileCollectionsSessionCoordinator {
         request: PlayerPresentationRequestGate.Request,
         widgetHandoffRequest: WidgetLaunchPresentationState.Request? = nil
     ) async -> Bool {
-        guard playerPresentationGate.isPending(request) else { return false }
+        guard playerPresentationGate.isPending(request), !Task.isCancelled else { return false }
+        if widgetTokenInsertion == nil {
+            guard await collectionPreparation.prepare(
+                collectionId: initialItemId,
+                operation: dependencies.prepareCollection,
+                isCurrent: { self.playerPresentationGate.isPending(request) },
+                retry: { [weak self] in
+                    guard let self else { return }
+                    Task {
+                        _ = await self.openPlayer(
+                            initialItemId: initialItemId,
+                            initialTokenId: initialTokenId,
+                            initialTokenIndex: initialTokenIndex,
+                            continueViewingCollectionId: continueViewingCollectionId,
+                            widgetTokenInsertion: widgetTokenInsertion,
+                            anchorProgress: anchorProgress,
+                            transition: transition,
+                            request: request,
+                            widgetHandoffRequest: widgetHandoffRequest
+                        )
+                    }
+                }
+            ) else { return false }
+        }
+        guard playerPresentationGate.isPending(request), !Task.isCancelled else { return false }
         guard let continueViewingUpdate = await dependencies.progressStore
             .prepareContinueViewingUpdate(
                 collectionId: continueViewingCollectionId,
                 isRemoved: false
             ),
-              playerPresentationGate.isPending(request) else {
+              playerPresentationGate.isPending(request), !Task.isCancelled else {
             return false
         }
         let config = dependencies.preparePlayerConfig(

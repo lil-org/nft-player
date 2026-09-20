@@ -29,6 +29,10 @@ struct MacRootView: View {
                 toolbarContent
             }
             .navigationTitle(model.title)
+            .collectionPreparation(
+                model.collectionPreparation,
+                onCancel: Navigator.shared.cancelPendingPlayerPresentation
+            )
     }
 
     @ToolbarContentBuilder

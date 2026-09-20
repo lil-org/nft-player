@@ -91,7 +91,7 @@ nonisolated private enum CollectionWidgetTimelineFactory {
             )
         }
 
-        guard let imageReference = CollectionOfTheDayWidgetData.randomStaticImageReference(collection: collection) else {
+        guard let imageReference = await CollectionOfTheDayWidgetData.randomStaticImageReference(collection: collection) else {
             return await fallbackTimeline(collection: collection, date: date)
         }
 

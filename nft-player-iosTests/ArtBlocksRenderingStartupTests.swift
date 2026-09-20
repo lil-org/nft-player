@@ -5,7 +5,7 @@ import WebKit
 import XCTest
 @testable import nft_player_ios
 
-nonisolated final class ArtBlocksRenderingStartupTests: XCTestCase {}
+nonisolated final class ArtBlocksRenderingStartupTests: CollectionTokenFixtureTestCase {}
 
 @MainActor
 private final class StartupOperation<Value: Sendable> {
@@ -206,7 +206,7 @@ extension ArtBlocksRenderingStartupTests {
     func testPoolPartyAutomaticPlaybackForEverySavedToken() async throws {
         let id = "0xaa00b2b2db36b8f8004a9aa96f0012005d92b3000"
         let scriptURL = try XCTUnwrap(JavaScriptLibraryFixtures.scriptURL(collectionId: id))
-        let tokensURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: id))
+        let tokensURL = try XCTUnwrap(CollectionTokenFixtures.url(collectionId: id))
         let source = try Data(contentsOf: scriptURL), tokenData = try Data(contentsOf: tokensURL)
         let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: id))
         let tokens = try BundledTokens(data: tokenData).items.resolvingAspectRatios(default: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: id)).aspectRatio)
@@ -447,7 +447,7 @@ extension ArtBlocksRenderingStartupTests {
 
     private func syntheticStartupFixture() throws -> (StartupFixture, Script, [BundledTokens.Item], StartupReadinessProbe) {
         let id = "0x47a91457a3a1f700097199fd63c039c4784384ab3"
-        let tokensURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: id))
+        let tokensURL = try XCTUnwrap(CollectionTokenFixtures.url(collectionId: id))
         let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: id))
         let tokens = try BundledTokens(data: Data(contentsOf: tokensURL)).items.resolvingAspectRatios(default: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: id)).aspectRatio)
         AutoReloadingWebView.resetStartupCalibrationsForTesting()
@@ -515,7 +515,7 @@ extension ArtBlocksRenderingStartupTests {
         var results: [[String: Any]] = []
         for item in items {
             let scriptURL = try XCTUnwrap(JavaScriptLibraryFixtures.scriptURL(collectionId: item.id))
-            let tokensURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: item.id))
+            let tokensURL = try XCTUnwrap(CollectionTokenFixtures.url(collectionId: item.id))
             let source = try Data(contentsOf: scriptURL), tokenData = try Data(contentsOf: tokensURL)
             let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: item.id))
             let token = try XCTUnwrap(BundledTokens(data: tokenData).items.resolvingAspectRatios(default: item.aspectRatio).first)
@@ -582,7 +582,7 @@ extension ArtBlocksRenderingStartupTests {
         ]
         for (name, id) in collections {
             let scriptURL = try XCTUnwrap(JavaScriptLibraryFixtures.scriptURL(collectionId: id))
-            let tokensURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: id))
+            let tokensURL = try XCTUnwrap(CollectionTokenFixtures.url(collectionId: id))
             let source = try Data(contentsOf: scriptURL), tokenData = try Data(contentsOf: tokensURL)
             let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: id))
             let token = try XCTUnwrap(BundledTokens(data: tokenData).items.resolvingAspectRatios(default: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: id)).aspectRatio).first)
@@ -634,7 +634,7 @@ extension ArtBlocksRenderingStartupTests {
 
     func testStartupWithoutVisibleDrawingReportsAStallAfterDOMCompletes() async throws {
         let id = "0x47a91457a3a1f700097199fd63c039c4784384ab3"
-        let tokensURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: id))
+        let tokensURL = try XCTUnwrap(CollectionTokenFixtures.url(collectionId: id))
         let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: id))
         let token = try XCTUnwrap(BundledTokens(data: Data(contentsOf: tokensURL)).items.resolvingAspectRatios(default: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: id)).aspectRatio).first)
         let fixture = try StartupFixture(size: CGSize(width: 300, height: 300))
@@ -654,7 +654,7 @@ extension ArtBlocksRenderingStartupTests {
 
     func testPresentedStartupCancelsItsStallTimeout() async throws {
         let id = "0x47a91457a3a1f700097199fd63c039c4784384ab3"
-        let tokensURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: id))
+        let tokensURL = try XCTUnwrap(CollectionTokenFixtures.url(collectionId: id))
         let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: id))
         let token = try XCTUnwrap(BundledTokens(data: Data(contentsOf: tokensURL)).items.resolvingAspectRatios(default: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: id)).aspectRatio).first)
         let fixture = try StartupFixture(size: CGSize(width: 300, height: 300))
@@ -750,7 +750,7 @@ extension ArtBlocksRenderingStartupTests {
     func testStartupCushionsAllReviewedTokensAndAdditionalVariants() async throws {
         let collectionId = "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270231"
         let scriptURL = try XCTUnwrap(JavaScriptLibraryFixtures.scriptURL(collectionId: collectionId))
-        let tokenURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: collectionId))
+        let tokenURL = try XCTUnwrap(CollectionTokenFixtures.url(collectionId: collectionId))
         let originalSource = try Data(contentsOf: scriptURL)
         let originalTokens = try Data(contentsOf: tokenURL)
         let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: collectionId))
@@ -813,7 +813,7 @@ extension ArtBlocksRenderingStartupTests {
 
     private func verifyRedundantRequest(_ request: RedundantRequest) async throws {
         let collectionId = "0x47a91457a3a1f700097199fd63c039c4784384ab3"
-        let tokenURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: collectionId))
+        let tokenURL = try XCTUnwrap(CollectionTokenFixtures.url(collectionId: collectionId))
         let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: collectionId))
         let token = try XCTUnwrap(BundledTokens(data: Data(contentsOf: tokenURL)).items.resolvingAspectRatios(default: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: collectionId)).aspectRatio).first)
         let profile = try XCTUnwrap(ArtBlocksRenderingStartupProfiles.startupProfile(script))
@@ -858,7 +858,7 @@ extension ArtBlocksRenderingStartupTests {
 
     private func verifyCollection(_ collectionId: String, name: String) async throws {
         let scriptURL = try XCTUnwrap(JavaScriptLibraryFixtures.scriptURL(collectionId: collectionId))
-        let tokenURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: collectionId))
+        let tokenURL = try XCTUnwrap(CollectionTokenFixtures.url(collectionId: collectionId))
         let originalSource = try Data(contentsOf: scriptURL)
         let originalTokens = try Data(contentsOf: tokenURL)
         let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: collectionId))

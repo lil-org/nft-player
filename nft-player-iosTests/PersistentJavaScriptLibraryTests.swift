@@ -4,7 +4,7 @@ import UIKit
 import XCTest
 @testable import nft_player_ios
 
-nonisolated final class PersistentJavaScriptLibraryTests: XCTestCase {}
+nonisolated final class PersistentJavaScriptLibraryTests: CollectionTokenFixtureTestCase {}
 
 private actor LibraryDownloadProbe {
     private(set) var urls: [URL] = []
@@ -46,7 +46,7 @@ extension PersistentJavaScriptLibraryTests {
     }
 
     private func token(for script: Script) -> BundledTokens.Item {
-        SuggestedItemsService.bundledTokens(collectionId: script.id)?.items.first(where: { $0.hash != nil })
+        SuggestedItemsService.cachedTokens(collectionId: script.id)?.items.first(where: { $0.hash != nil })
             ?? BundledTokens.Item(id: script.abId + "000000", name: nil, hash: "0x" + String(repeating: "1", count: 64))
     }
 

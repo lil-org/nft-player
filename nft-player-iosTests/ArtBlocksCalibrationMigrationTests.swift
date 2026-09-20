@@ -5,7 +5,7 @@ import WebKit
 import XCTest
 @testable import nft_player_ios
 
-nonisolated final class ArtBlocksCalibrationMigrationTests: XCTestCase {}
+nonisolated final class ArtBlocksCalibrationMigrationTests: CollectionTokenFixtureTestCase {}
 
 private struct MigratedStartupCalibration: Codable, Equatable {
     let zoom: Double
@@ -28,7 +28,7 @@ extension ArtBlocksCalibrationMigrationTests {
         let collectionId = "0x47a91457a3a1f700097199fd63c039c4784384ab80"
         let identity = "42161:0x47a91457a3a1f700097199fd63c039c4784384ab:80"
         let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: collectionId))
-        let token = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: collectionId)?.items.first)
+        let token = try XCTUnwrap(SuggestedItemsService.cachedTokens(collectionId: collectionId)?.items.first)
         let profile = try XCTUnwrap(ArtBlocksRenderingStartupProfiles.startupProfile(script))
         let legacyId = try XCTUnwrap(script.legacyArtBlocksCollectionId)
         XCTAssertEqual(script.name, "Autopoiesis ")

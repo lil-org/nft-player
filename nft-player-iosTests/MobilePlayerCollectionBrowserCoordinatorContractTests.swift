@@ -5,7 +5,7 @@ import XCTest
 @testable import nft_player_ios
 
 nonisolated final class MobilePlayerCollectionBrowserCoordinatorContractTests:
-    XCTestCase {}
+    CollectionTokenFixtureTestCase {}
 
 @MainActor
 private final class CollectionBrowserDecodeVariantState {

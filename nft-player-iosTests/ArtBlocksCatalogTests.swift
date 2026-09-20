@@ -8,7 +8,7 @@ extension Array where Element == BundledTokens.Item {
     }
 }
 
-nonisolated final class ArtBlocksCatalogTests: XCTestCase {}
+nonisolated final class ArtBlocksCatalogTests: CollectionTokenFixtureTestCase {}
 
 @MainActor
 extension ArtBlocksCatalogTests {
@@ -183,7 +183,7 @@ extension ArtBlocksCatalogTests {
 
     func testTerraformsURLHintsPreserveHTMLMediaAndThumbnails() throws {
         let item = try XCTUnwrap(SuggestedItemsService.allItems.first { $0.internalSlug == "terraforms" })
-        let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: item.id))
+        let tokens = try XCTUnwrap(SuggestedItemsService.cachedTokens(collectionId: item.id))
         XCTAssertEqual(tokens.items.count, 9844)
         XCTAssertEqual(CollectionCatalog.tokenCount(specificCollectionId: item.id), 9844)
 
@@ -512,9 +512,47 @@ extension ArtBlocksCatalogTests {
         ))
     }
 
+    func testCatalogResourcesAreFlatAndTokenManifestsStayOutOfApplicationBundle() throws {
+        XCTAssertNotNil(SuggestedItemsService.resourceURL("items"))
+        XCTAssertNotNil(SuggestedItemsService.resourceURL("artists"))
+        XCTAssertNil(Bundle.main.url(forResource: "Suggested", withExtension: "bundle"))
+        XCTAssertNil(Bundle.main.url(forResource: "WidgetSuggested", withExtension: "bundle"))
+        XCTAssertNil(Bundle.main.url(forResource: "CollectionManifests", withExtension: nil))
+        for item in SuggestedItemsService.allItems {
+            XCTAssertNil(Bundle.main.url(forResource: item.bundledResourceName, withExtension: "json"), item.name)
+            XCTAssertNil(Bundle.main.url(forResource: item.bundledResourceName, withExtension: "json", subdirectory: "Tokens"), item.name)
+        }
+    }
+
+    func testPreparedCollectionAndNativeRangeNeedNoFurtherManifestDownload() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let cache = PersistentCollectionTokenCache(rootURL: root) { _ in
+            XCTFail("Prepared and native collections must not download manifests")
+            throw URLError(.notConnectedToInternet)
+        }
+        for slug in ["fidenza", "terraforms", "card_nft_2"] {
+            let item = try XCTUnwrap(SuggestedItemsService.item(resourceName: slug))
+            try await CollectionCatalog.prepareCollection(collectionId: item.id, allowsDownloads: false, cache: cache)
+            XCTAssertNotNil(CollectionCatalog.generateToken(specificCollectionId: item.id, tokenIndex: 0), slug)
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.path))
+    }
+
+    func testUnknownCollectionPreparationFailsWithoutNetworkAccess() async throws {
+        let cache = PersistentCollectionTokenCache(rootURL: FileManager.default.temporaryDirectory) { _ in
+            XCTFail("Unknown collections must not produce CDN requests")
+            throw URLError(.badURL)
+        }
+        do {
+            try await CollectionCatalog.prepareCollection(collectionId: "unknown_collection", cache: cache)
+            XCTFail("Unknown collection must fail preparation")
+        } catch CollectionCatalog.PreparationFailure.unknownCollection {
+        }
+    }
+
     func testBundledTokenMetadataMatchesEveryResourceAndAcceptedDownloadableRecord() throws {
         for item in SuggestedItemsService.allItems {
-            guard let url = SuggestedItemsService.bundledTokensURL(collectionId: item.id) else {
+            guard let url = CollectionTokenFixtures.url(collectionId: item.id) else {
                 XCTAssertEqual(item.internalSlug, "card_nft_2")
                 XCTAssertNil(item.bundledTokenCount)
                 XCTAssertNil(item.hasUniformAspectRatio)
@@ -568,7 +606,7 @@ extension ArtBlocksCatalogTests {
     func testMixedProfilesAndResolvedTokensPreserveCollectionDefaultsAndOverrides() throws {
         for slug in ["focus", "degenerative"] {
             let item = try XCTUnwrap(SuggestedItemsService.allItems.first { $0.internalSlug == slug })
-            let raw = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: item.id)).items
+            let raw = try XCTUnwrap(SuggestedItemsService.cachedTokens(collectionId: item.id)).items
             let resolved = raw.resolvingAspectRatios(default: item.aspectRatio)
             XCTAssertEqual(item.hasUniformAspectRatio, false, slug)
             XCTAssertEqual(TokenGenerator.aspectRatioProfile(specificCollectionId: item.id), .variable(resolved.compactMap(\.aspectRatio)))
@@ -597,11 +635,11 @@ extension ArtBlocksCatalogTests {
             XCTAssertFalse(slug.contains("/"), item.name)
 
             if item.internalSlug == "card_nft_2" {
-                XCTAssertNil(SuggestedItemsService.bundledTokensURL(collectionId: item.id))
+                XCTAssertNil(CollectionTokenFixtures.url(collectionId: item.id))
             } else {
-                let url = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: item.id), item.name)
+                let url = try XCTUnwrap(CollectionTokenFixtures.url(collectionId: item.id), item.name)
                 XCTAssertEqual(url.lastPathComponent, slug + ".json")
-                XCTAssertNotNil(SuggestedItemsService.bundledTokens(collectionId: item.id), item.name)
+                XCTAssertNotNil(SuggestedItemsService.cachedTokens(collectionId: item.id), item.name)
                 tokenCount += 1
             }
 
@@ -643,7 +681,7 @@ extension ArtBlocksCatalogTests {
         let directory = SuggestedItemsService.bundle.bundleURL.appendingPathComponent("Scripts")
         XCTAssertFalse(FileManager.default.fileExists(atPath: directory.path))
         XCTAssertNil(Bundle.main.url(forResource: "ArtworkScripts", withExtension: nil))
-        XCTAssertNil(SuggestedItemsService.bundledTokensURL(collectionId: "unknown_collection"))
+        XCTAssertNil(CollectionTokenFixtures.url(collectionId: "unknown_collection"))
         XCTAssertNil(SuggestedItemsService.scriptItem(collectionId: "unknown_collection"))
     }
 
@@ -654,16 +692,16 @@ extension ArtBlocksCatalogTests {
         XCTAssertNotEqual(uppercaseId, item.id)
         XCTAssertNil(SuggestedItemsService.item(id: uppercaseId))
 
-        let tokensURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: item.id))
-        XCTAssertEqual(SuggestedItemsService.bundledTokensURL(collectionId: uppercaseId), tokensURL)
+        let tokensURL = try XCTUnwrap(CollectionTokenFixtures.url(collectionId: item.id))
+        XCTAssertEqual(CollectionTokenFixtures.url(collectionId: uppercaseId), tokensURL)
         for identifier in [item.id, uppercaseId, item.bundledResourceName, item.bundledResourceName.uppercased()] {
             let resolvedItem = try XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: identifier))
             XCTAssertEqual(resolvedItem, item)
             XCTAssertEqual(resolvedItem.scriptDependency, item.scriptDependency)
         }
 
-        let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: item.id))
-        let uppercaseTokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: uppercaseId))
+        let tokens = try XCTUnwrap(SuggestedItemsService.cachedTokens(collectionId: item.id))
+        let uppercaseTokens = try XCTUnwrap(SuggestedItemsService.cachedTokens(collectionId: uppercaseId))
         let encoder = JSONEncoder()
         encoder.outputFormatting = .sortedKeys
         XCTAssertEqual(try encoder.encode(uppercaseTokens), try encoder.encode(tokens))
@@ -671,9 +709,9 @@ extension ArtBlocksCatalogTests {
         let solana = try XCTUnwrap(SuggestedItemsService.allItems.first { $0.chain == .solana })
         let lowercasedSolanaId = solana.id.lowercased()
         XCTAssertNotEqual(lowercasedSolanaId, solana.id)
-        XCTAssertNotNil(SuggestedItemsService.bundledTokensURL(collectionId: solana.id))
+        XCTAssertNotNil(CollectionTokenFixtures.url(collectionId: solana.id))
         XCTAssertNil(SuggestedItemsService.item(id: lowercasedSolanaId))
-        XCTAssertNil(SuggestedItemsService.bundledTokensURL(collectionId: lowercasedSolanaId))
+        XCTAssertNil(CollectionTokenFixtures.url(collectionId: lowercasedSolanaId))
     }
 
     func testNativeGenerationUsesCatalogMetadataWithoutSourceFiles() throws {
@@ -799,7 +837,7 @@ extension ArtBlocksCatalogTests {
     func testAllMintedRecordsDecodeWithHashesAndStableNavigationIdentity() throws {
         var count = 0
         for item in additions {
-            let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: item.id))
+            let tokens = try XCTUnwrap(SuggestedItemsService.cachedTokens(collectionId: item.id))
             XCTAssertFalse(tokens.items.isEmpty, item.name)
             XCTAssertEqual(Set(tokens.items.map(\.id)).count, tokens.items.count, item.name)
             XCTAssertEqual(CollectionCatalog.tokenCount(specificCollectionId: item.id), tokens.items.count)
@@ -838,7 +876,7 @@ extension ArtBlocksCatalogTests {
 
     func testNeighborhoodUsesPerTokenAspectRatiosForBrowsingAndPlayback() throws {
         let item = try XCTUnwrap(additions.first { $0.internalSlug == "neighborhood" })
-        let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: item.id)).items
+        let tokens = try XCTUnwrap(SuggestedItemsService.cachedTokens(collectionId: item.id)).items
             .resolvingAspectRatios(default: item.aspectRatio)
         for (index, width, height) in [(0, 16, 9), (3, 1, 1), (7, 9, 16)] {
             let ratio = AspectRatio(width: width, height: height)
@@ -863,7 +901,7 @@ extension ArtBlocksCatalogTests {
             ("assembly", [AspectRatio(width: 5, height: 6)])
         ] {
             let item = try XCTUnwrap(SuggestedItemsService.allItems.first { $0.internalSlug == slug })
-            let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: item.id)).items
+            let tokens = try XCTUnwrap(SuggestedItemsService.cachedTokens(collectionId: item.id)).items
             .resolvingAspectRatios(default: item.aspectRatio)
             for ratio in expected {
                 let index = try XCTUnwrap(tokens.firstIndex { $0.aspectRatio == ratio })
@@ -925,7 +963,7 @@ extension ArtBlocksCatalogTests {
             XCTAssertEqual(CollectionCatalog.collectionWebURL(specificCollectionId: item.id)?.absoluteString, item.collectionWebURL)
             XCTAssertEqual(CollectionCatalogItem(item: item).coverAssetName, slug)
 
-            let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: item.id)).items
+            let tokens = try XCTUnwrap(SuggestedItemsService.cachedTokens(collectionId: item.id)).items
             .resolvingAspectRatios(default: item.aspectRatio)
             XCTAssertEqual(tokens.count, count)
             for (index, expected) in tokens.enumerated() {
@@ -993,7 +1031,7 @@ extension ArtBlocksCatalogTests {
             XCTAssertEqual(CollectionCatalogItem(item: item).coverAssetName, slug)
 
             let projectID = try XCTUnwrap(item.abId.flatMap(Int.init))
-            let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: item.id))
+            let tokens = try XCTUnwrap(SuggestedItemsService.cachedTokens(collectionId: item.id))
             XCTAssertEqual(tokens.items.count, count)
             XCTAssertEqual(Set(tokens.items.map(\.id)).count, count)
             let base = "https://cdn.lil.org/player/\(slug)"
@@ -1032,7 +1070,7 @@ extension ArtBlocksCatalogTests {
 
     func testPrimaveraPreservesMixedArtworkAspectRatios() throws {
         let item = try XCTUnwrap(SuggestedItemsService.allItems.first { $0.internalSlug == "primavera" })
-        let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: item.id)).items
+        let tokens = try XCTUnwrap(SuggestedItemsService.cachedTokens(collectionId: item.id)).items
             .resolvingAspectRatios(default: item.aspectRatio)
         let expectations = [(0, 6, 5), (1, 9, 16), (2, 16, 9), (4, 5, 6), (15, 1, 1)]
         for (index, width, height) in expectations {

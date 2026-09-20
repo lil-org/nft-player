@@ -5,7 +5,7 @@ import WebKit
 import XCTest
 @testable import nft_player_ios
 
-nonisolated final class ArtBlocksRenderingTests: XCTestCase {}
+nonisolated final class ArtBlocksRenderingTests: CollectionTokenFixtureTestCase {}
 
 @MainActor
 private final class FinalReviewOperation<Value: Sendable> {
@@ -696,7 +696,7 @@ extension ArtBlocksRenderingTests {
 
     private func resources(_ id: String) throws -> Resources {
         let scriptURL = try XCTUnwrap(JavaScriptLibraryFixtures.scriptURL(collectionId: id))
-        let tokensURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: id))
+        let tokensURL = try XCTUnwrap(CollectionTokenFixtures.url(collectionId: id))
         let source = try Data(contentsOf: scriptURL), tokenData = try Data(contentsOf: tokensURL)
         return Resources(script: try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: id)),
             tokens: try BundledTokens(data: tokenData).items.resolvingAspectRatios(default: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: id)).aspectRatio),

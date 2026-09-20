@@ -288,23 +288,25 @@ nonisolated enum TokenGenerator {
         BundledTokens.Item(id: String(tokenID), name: nil, hash: nil)
     }
 
-    private static func collectionData(specificCollectionId: String) -> CollectionTokenData? {
-        if let collectionData = cache.withLock({ $0.collectionDataByCollectionId[specificCollectionId] }) {
-            return collectionData
-        }
-
-        guard let item = generativeItem(specificCollectionId: specificCollectionId),
-              let tokens = SuggestedItemsService.bundledTokens(collectionId: item.id)?.items else { return nil }
-
-        let collectionData = CollectionTokenData(item: item, tokens: tokens)
-        return cache.withLock { state in
-            if let cachedCollectionData = state.collectionDataByCollectionId[specificCollectionId] {
-                return cachedCollectionData
-            }
-            state.collectionDataByCollectionId[specificCollectionId] = collectionData
-            return collectionData
+    static func prepareCollection(collectionId: String, tokens: BundledTokens) {
+        guard let item = generativeItem(specificCollectionId: collectionId),
+              !isRangedNativeCollection(collectionId),
+              cache.withLock({ $0.collectionDataByCollectionId[collectionId] }) == nil else { return }
+        let collectionData = CollectionTokenData(item: item, tokens: tokens.items)
+        cache.withLock { state in
+            state.collectionDataByCollectionId[collectionId] = collectionData
         }
     }
+
+    private static func collectionData(specificCollectionId: String) -> CollectionTokenData? {
+        cache.withLock { $0.collectionDataByCollectionId[specificCollectionId] }
+    }
+
+#if DEBUG
+    static func removePreparedCollection(collectionId: String) {
+        _ = cache.withLock { $0.collectionDataByCollectionId.removeValue(forKey: collectionId) }
+    }
+#endif
 
     private static func generativeItem(specificCollectionId: String) -> SuggestedItem? {
         guard canGenerate(id: specificCollectionId) else { return nil }

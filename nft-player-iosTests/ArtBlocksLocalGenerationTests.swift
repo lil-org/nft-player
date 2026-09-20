@@ -2,7 +2,7 @@ import Foundation
 import XCTest
 @testable import nft_player_ios
 
-nonisolated final class ArtBlocksLocalGenerationTests: XCTestCase {}
+nonisolated final class ArtBlocksLocalGenerationTests: CollectionTokenFixtureTestCase {}
 
 @MainActor
 extension ArtBlocksLocalGenerationTests {
@@ -82,7 +82,7 @@ extension ArtBlocksLocalGenerationTests {
         var total = 0
         for project in projects {
             let item = try XCTUnwrap(SuggestedItemsService.item(id: project.id))
-            let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: project.id))
+            let tokens = try XCTUnwrap(SuggestedItemsService.cachedTokens(collectionId: project.id))
             XCTAssertEqual(tokens.items.count, project.count, project.name)
             XCTAssertEqual(tokens.items.map(\.id), (0..<project.count).map(project.tokenId))
             XCTAssertEqual(TokenGenerator.tokenCount(specificCollectionId: project.id), project.count)
@@ -165,7 +165,7 @@ extension ArtBlocksLocalGenerationTests {
         for project in staticProjects {
             let id = project.address + String(project.projectId)
             let item = try XCTUnwrap(SuggestedItemsService.item(id: id), project.name)
-            let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: id))
+            let tokens = try XCTUnwrap(SuggestedItemsService.cachedTokens(collectionId: id))
             XCTAssertEqual(item.name, project.name)
             XCTAssertEqual(item.internalSlug, project.slug)
             XCTAssertEqual(item.tokenCount, project.count)

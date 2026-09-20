@@ -3,7 +3,7 @@
 import XCTest
 @testable import nft_player_ios
 
-nonisolated final class MobilePlaybackSessionTests: XCTestCase {}
+nonisolated final class MobilePlaybackSessionTests: CollectionTokenFixtureTestCase {}
 
 private actor MobilePlaybackSessionTestViewingTracker:
     MobilePlaybackViewingSessionTracking {
@@ -183,7 +183,7 @@ extension MobilePlaybackSessionTests {
         item: SuggestedItem,
         insertedToken: GeneratedToken
     ) throws -> PlayerWidgetTokenInsertion {
-        let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: item.id)).items
+        let tokens = try XCTUnwrap(SuggestedItemsService.cachedTokens(collectionId: item.id)).items
         return PlayerWidgetTokenInsertion(
             insertedToken: insertedToken,
             insertedTokenIndex: 0,

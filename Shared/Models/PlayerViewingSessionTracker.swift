@@ -84,12 +84,18 @@ final class PlayerPresentationRequestGate {
         discardDeferredCommit()
     }
 
-    func resolutionForPendingRequest() -> (@MainActor (Bool) -> Void)? {
+    func resolutionForPendingRequest(
+        onRequestCancelled: @escaping PresentationOperation = {}
+    ) -> (@MainActor (Bool) -> Void)? {
         guard let request = pendingRequest else { return nil }
         let suspension = Suspension(id: UUID(), request: request)
         self.suspension = suspension
         return { [weak self] didComplete in
-            self?.resolve(suspension, didComplete: didComplete)
+            self?.resolve(
+                suspension,
+                didComplete: didComplete,
+                onRequestCancelled: onRequestCancelled
+            )
         }
     }
 
@@ -114,7 +120,11 @@ final class PlayerPresentationRequestGate {
         return performCommit(request, present: present, persist: persist)
     }
 
-    private func resolve(_ suspension: Suspension, didComplete: Bool) {
+    private func resolve(
+        _ suspension: Suspension,
+        didComplete: Bool,
+        onRequestCancelled: PresentationOperation
+    ) {
         guard self.suspension == suspension else { return }
         self.suspension = nil
         guard pendingRequest == suspension.request else {
@@ -125,7 +135,10 @@ final class PlayerPresentationRequestGate {
         }
         if didComplete {
             pendingRequest = nil
-            discardDeferredCommit()
+            let deferredCommit = deferredCommit
+            self.deferredCommit = nil
+            onRequestCancelled()
+            deferredCommit?.discard()
             return
         }
         guard let deferredCommit,

@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const defaultItemsPath = path.join(repositoryRoot, "Suggested Items/Suggested.bundle/items.json");
+const defaultItemsPath = path.join(repositoryRoot, "Suggested Items/items.json");
 const defaultOutputDirectory = path.join(repositoryRoot, "build/test-artwork-sources/ArtworkScripts");
 
 export function artworkSourceDescriptors(items) {

@@ -3,62 +3,56 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { generateWidgetResources, widgetTokenPayload } from "./generate-widget-resources.mjs";
-import tokenManifest from "../tools/token_manifest.js";
+import { generateWidgetResources } from "./generate-widget-resources.mjs";
 
-const { decodeTokenManifest, serializeTokenManifest } = tokenManifest;
-
-test("widget projection preserves every source ordinal and only retains ID and URL suffix", () => {
-  const source = { version: 2, count: 3, ids: ["same", "same", "other"],
-    name: ["one", null, "three"], hash: ["first", "second", "third"],
-    urlTemplate: { value: "index1", suffix: ".png" }, excludedMediaIndices: [0] };
-  const projected = widgetTokenPayload(source);
-  assert.deepEqual(projected, { items: [
-    { id: "same", urlSuffix: "1.png" }, { id: "same", urlSuffix: "2.png" }, { id: "other", urlSuffix: "3.png" },
-  ] });
-  const compact = JSON.parse(serializeTokenManifest(projected));
-  assert.deepEqual(compact.urlTemplate, source.urlTemplate);
-  assert.equal(compact.excludedMediaIndices, undefined);
-  assert.deepEqual(decodeTokenManifest(compact), projected);
-});
-
-test("widget generation is canonical, current, and read-only in check mode", async (t) => {
+async function fixture(t) {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "nft-widget-resources-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
-  const sourceBundle = path.join(directory, "Suggested.bundle");
-  await fs.mkdir(path.join(sourceBundle, "Tokens"), { recursive: true });
-  await fs.writeFile(path.join(directory, "widget-eligible-collections.json"), '["sample"]');
-  const item = { internal_slug: "sample", bundledTokenCount: 2, hasUniformAspectRatio: true };
-  await fs.writeFile(path.join(sourceBundle, "items.json"), JSON.stringify([item]));
-  await fs.writeFile(path.join(sourceBundle, "Tokens", "sample.json"), serializeTokenManifest([
-    { id: "1", urlSuffix: "1.png", name: "Art" }, { id: "2", urlSuffix: "2.png", aspectRatio: [4, 3] },
-  ]));
+  const items = [
+    { internal_slug: "first", bundledTokenCount: 2, hasUniformAspectRatio: true },
+    { internal_slug: "second", tokenCount: 3, urlPrefix: "https://example.com/" },
+    { internal_slug: "third" },
+  ];
+  await fs.writeFile(path.join(directory, "items.json"), JSON.stringify(items));
+  await fs.writeFile(path.join(directory, "widget-eligible-collections.json"), '["second","first"]');
+  return { directory, items, outputPath: path.join(directory, "widget-items.json") };
+}
+
+test("widget generation preserves selected metadata and eligibility order without token files", async (t) => {
+  const { directory, items, outputPath } = await fixture(t);
   await generateWidgetResources(directory);
-  const outputFile = path.join(directory, "WidgetSuggested.bundle", "Tokens", "sample.json");
-  const expected = '{"version":2,"count":2,"firstId":"1","urlTemplate":{"value":"id","suffix":".png"}}\n';
-  assert.equal(await fs.readFile(outputFile, "utf8"), expected);
-  assert.deepEqual(JSON.parse(await fs.readFile(path.join(directory, "WidgetSuggested.bundle", "items.json"))), [item]);
+  assert.equal(await fs.readFile(outputPath, "utf8"), `${JSON.stringify([items[1], items[0]], null, 2)}\n`);
   await generateWidgetResources(directory, { check: true });
-  await fs.writeFile(outputFile, "stale");
+  assert.deepEqual((await fs.readdir(directory)).sort(), ["items.json", "widget-eligible-collections.json", "widget-items.json"]);
+});
+
+test("check detects missing and stale output without writing", async (t) => {
+  const { directory, outputPath } = await fixture(t);
   await assert.rejects(generateWidgetResources(directory, { check: true }), /out of date/u);
-  assert.equal(await fs.readFile(outputFile, "utf8"), "stale");
-  await generateWidgetResources(directory);
-  await fs.writeFile(path.join(directory, "WidgetSuggested.bundle", "extra.json"), "{}");
-  await assert.rejects(generateWidgetResources(directory, { check: true }), /unexpected/u);
+  await assert.rejects(fs.access(outputPath), { code: "ENOENT" });
+  await fs.writeFile(outputPath, "existing");
+  await assert.rejects(generateWidgetResources(directory, { check: true }), /out of date/u);
+  assert.equal(await fs.readFile(outputPath, "utf8"), "existing");
   await generateWidgetResources(directory);
   await generateWidgetResources(directory, { check: true });
 });
 
-test("invalid widget source does not replace existing generated output", async (t) => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "nft-widget-invalid-"));
-  t.after(() => fs.rm(directory, { recursive: true, force: true }));
-  await fs.mkdir(path.join(directory, "Suggested.bundle", "Tokens"), { recursive: true });
-  await fs.mkdir(path.join(directory, "WidgetSuggested.bundle"));
-  await fs.writeFile(path.join(directory, "widget-eligible-collections.json"), '["sample"]');
-  await fs.writeFile(path.join(directory, "Suggested.bundle", "items.json"), '[{"internal_slug":"sample"}]');
-  await fs.writeFile(path.join(directory, "Suggested.bundle", "Tokens", "sample.json"), '{"version":2,"count":2,"ids":[]}');
-  const marker = path.join(directory, "WidgetSuggested.bundle", "items.json");
-  await fs.writeFile(marker, "existing");
-  await assert.rejects(generateWidgetResources(directory), /ids must/u);
-  assert.equal(await fs.readFile(marker, "utf8"), "existing");
+test("invalid eligibility never replaces existing output", async (t) => {
+  const { directory, outputPath } = await fixture(t);
+  await fs.writeFile(outputPath, "existing");
+  for (const invalid of ["{}", '["missing"]', '["first","first"]', '["../first"]', "[2]"]) {
+    await fs.writeFile(path.join(directory, "widget-eligible-collections.json"), invalid);
+    await assert.rejects(generateWidgetResources(directory));
+    assert.equal(await fs.readFile(outputPath, "utf8"), "existing");
+  }
+});
+
+test("invalid catalogs never replace existing output", async (t) => {
+  const { directory, outputPath } = await fixture(t);
+  await fs.writeFile(outputPath, "existing");
+  for (const invalid of ["{}", '[{"internal_slug":"../first"}]', '[{"internal_slug":"first"},{"internal_slug":"first"}]']) {
+    await fs.writeFile(path.join(directory, "items.json"), invalid);
+    await assert.rejects(generateWidgetResources(directory));
+    assert.equal(await fs.readFile(outputPath, "utf8"), "existing");
+  }
 });

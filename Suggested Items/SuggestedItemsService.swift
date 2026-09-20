@@ -70,22 +70,16 @@ nonisolated enum SuggestedItemsService {
         URL(fileURLWithPath: $0 + "/Contents/Resources", isDirectory: true)
     }
 
-    static let bundle: Bundle = {
-        if let alternativeResourceDirectoryURL,
-           let altBundle = Bundle(
-            url: alternativeResourceDirectoryURL.appendingPathComponent(
-                "Suggested.bundle",
-                isDirectory: true
-            )
-           ) {
-            return altBundle
-        } else if let bundleURL = Bundle.main.url(forResource: "Suggested", withExtension: "bundle"),
-           let suggestedBundle = Bundle(url: bundleURL) {
-            return suggestedBundle
-        } else {
-            return Bundle.main
+    static let bundle = Bundle.main
+    private static let preparedTokens = OSAllocatedUnfairLock(initialState: [String: BundledTokens]())
+
+    static func resourceURL(_ name: String) -> URL? {
+        if let alternativeResourceDirectoryURL {
+            let url = alternativeResourceDirectoryURL.appendingPathComponent(name + ".json")
+            if FileManager.default.fileExists(atPath: url.path) { return url }
         }
-    }()
+        return bundle.url(forResource: name, withExtension: "json")
+    }
 
     private static let snapshot: Snapshot = {
         let allItems = loadItems(resource: "items")
@@ -98,7 +92,7 @@ nonisolated enum SuggestedItemsService {
         }
 
         let artistsBySlug: [String: SuggestedArtist]
-        if let url = bundle.url(forResource: "artists", withExtension: "json"),
+        if let url = resourceURL("artists"),
            let data = try? Data(contentsOf: url),
            let metadataBySlug = try? JSONDecoder().decode(
             [String: SuggestedArtistMetadata].self,
@@ -120,7 +114,7 @@ nonisolated enum SuggestedItemsService {
     }()
 
     private static func loadItems(resource: String) -> [SuggestedItem] {
-        guard let url = bundle.url(forResource: resource, withExtension: "json"),
+        guard let url = resourceURL(resource),
               let data = try? Data(contentsOf: url),
               let items = try? JSONDecoder().decode([SuggestedItem].self, from: data) else {
             return []
@@ -156,32 +150,40 @@ nonisolated enum SuggestedItemsService {
         return artistSlugs.compactMap { snapshot.artistsBySlug[$0] }
     }
     
-    static func bundledTokens(collectionId: String) -> BundledTokens? {
-        if scriptItem(collectionId: collectionId) != nil,
-           let url = bundledTokensURL(collectionId: collectionId),
-           let data = try? Data(contentsOf: url),
-           let bundledTokens = try? BundledTokens(data: data) {
-            return bundledTokens
-        } else {
-            return nil
-        }
+    static func cachedTokens(collectionId: String) -> BundledTokens? {
+        guard let item = scriptItem(collectionId: collectionId) else { return nil }
+        return preparedTokens.withLock { $0[item.id] }
     }
 
-    static func bundledTokensURL(collectionId: String) -> URL? {
-        bundledResourceURL(collectionId: collectionId, subdirectory: "Tokens")
+#if DEBUG
+    static func removePreparedTokens(collectionId: String) {
+        _ = preparedTokens.withLock { $0.removeValue(forKey: collectionId) }
+    }
+#endif
+
+    static func tokenResourceName(collectionId: String) -> String? {
+        guard let item = scriptItem(collectionId: collectionId),
+              item.script?.kind != .cardNft2Native else { return nil }
+        return item.bundledResourceName
+    }
+
+    @discardableResult
+    static func installTokens(_ data: Data, collectionId: String) throws -> BundledTokens {
+        guard let item = scriptItem(collectionId: collectionId) else {
+            throw CollectionCatalog.PreparationFailure.unknownCollection
+        }
+        let tokens = try BundledTokens(data: data)
+        return preparedTokens.withLock { cache in
+            if let existing = cache[item.id] { return existing }
+            cache[item.id] = tokens
+            return tokens
+        }
     }
 
     static func scriptItem(collectionId: String) -> SuggestedItem? {
         let lowercaseId = collectionId.lowercased()
         return item(id: collectionId) ?? item(id: lowercaseId)
             ?? item(resourceName: collectionId) ?? item(resourceName: lowercaseId)
-    }
-
-    private static func bundledResourceURL(collectionId: String, subdirectory: String) -> URL? {
-        let collection = item(id: collectionId) ?? item(id: collectionId.lowercased())
-        let resourceName = collection?.bundledResourceName ?? collectionId
-        return bundle.url(forResource: resourceName, withExtension: "json", subdirectory: subdirectory)
-            ?? bundle.url(forResource: resourceName.lowercased(), withExtension: "json", subdirectory: subdirectory)
     }
 
 }

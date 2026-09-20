@@ -1,200 +1,61 @@
 #!/usr/bin/env node
 
-import { constants as fsConstants } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import suggestedItems from "../tools/suggested_items.js";
-import tokenManifest from "../tools/token_manifest.js";
 
 const { assertValidInternalSlugs, INTERNAL_SLUG_PATTERN, MAX_INTERNAL_SLUG_LENGTH } = suggestedItems;
-const { decodeTokenManifest, serializeTokenManifest } = tokenManifest;
-
-const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
-const repositoryRoot = path.resolve(scriptDirectory, "..");
+const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const suggestedItemsDirectory = path.join(repositoryRoot, "Suggested Items");
+
 export async function generateWidgetResources(directory, { check = false } = {}) {
-  const sourceBundleDirectory = path.join(directory, "Suggested.bundle");
-  const outputBundleDirectory = path.join(directory, "WidgetSuggested.bundle");
-  const eligibleCollectionsPath = path.join(directory, "widget-eligible-collections.json");
-  const eligibleSlugs = await readEligibleCollectionSlugs(eligibleCollectionsPath);
-  const sourceItems = await readJSON(path.join(sourceBundleDirectory, "items.json"));
-  if (!Array.isArray(sourceItems)) {
-    throw new Error("Suggested.bundle/items.json must contain a JSON array.");
+  const eligibleSlugs = JSON.parse(await fs.readFile(path.join(directory, "widget-eligible-collections.json"), "utf8"));
+  if (!Array.isArray(eligibleSlugs) || eligibleSlugs.some((slug) => typeof slug !== "string"
+      || !INTERNAL_SLUG_PATTERN.test(slug) || slug.length > MAX_INTERNAL_SLUG_LENGTH)) {
+    throw new Error("widget-eligible-collections.json must contain an array of valid internal_slug strings.");
   }
+  if (new Set(eligibleSlugs).size !== eligibleSlugs.length) {
+    throw new Error("Duplicate collection slugs in widget-eligible-collections.json.");
+  }
+  const sourceItems = JSON.parse(await fs.readFile(path.join(directory, "items.json"), "utf8"));
+  if (!Array.isArray(sourceItems)) throw new Error("items.json must contain a JSON array.");
   assertValidInternalSlugs(sourceItems);
   const itemsBySlug = new Map(sourceItems.map((item) => [item.internal_slug, item]));
-
-  const selectedItems = [];
-  const missingItems = [];
-  for (const slug of eligibleSlugs) {
+  const selectedItems = eligibleSlugs.map((slug) => {
     const item = itemsBySlug.get(slug);
-    if (item) {
-      selectedItems.push(item);
-    } else {
-      missingItems.push(slug);
-    }
-  }
-  failIfAny("Missing collection slugs in Suggested.bundle/items.json", missingItems);
-
-  const expectedBundleFiles = new Map();
-  expectedBundleFiles.set(
-    "items.json",
-    Buffer.from(`${JSON.stringify(selectedItems, null, 2)}\n`)
-  );
-
-  const missingTokens = [];
-  for (const slug of eligibleSlugs) {
-    const tokenPath = path.join(sourceBundleDirectory, "Tokens", `${slug}.json`);
-    if (!(await exists(tokenPath))) {
-      missingTokens.push(slug);
-      continue;
-    }
-    const source = await fs.readFile(tokenPath, "utf8");
-    const payload = widgetTokenPayload(JSON.parse(source));
-    expectedBundleFiles.set(
-      path.join("Tokens", path.basename(tokenPath)),
-      Buffer.from(serializeTokenManifest(payload))
-    );
-  }
-  failIfAny("Missing token JSON files in Suggested.bundle/Tokens", missingTokens);
-
-  if (check) {
-    await checkOutput(outputBundleDirectory, expectedBundleFiles);
-    return;
-  }
-
-  await writeOutput(outputBundleDirectory, expectedBundleFiles);
-}
-
-export function widgetTokenPayload(payload) {
-  const items = decodeTokenManifest(payload).items.map((item) => {
-    const id = item.id;
-    return {
-      id,
-      ...(item.urlSuffix != null ? { urlSuffix: item.urlSuffix } : {}),
-    };
-  });
-  return { items };
-}
-
-async function readEligibleCollectionSlugs(eligibleCollectionsPath) {
-  const value = await readJSON(eligibleCollectionsPath);
-  if (!Array.isArray(value)) {
-    throw new Error("widget-eligible-collections.json must contain a JSON array.");
-  }
-
-  const slugs = value.map((item) => {
-    if (typeof item !== "string" || !INTERNAL_SLUG_PATTERN.test(item) || item.length > MAX_INTERNAL_SLUG_LENGTH) {
-      throw new Error("widget-eligible-collections.json must contain only valid internal_slug strings.");
-    }
+    if (!item) throw new Error(`Missing collection slug in items.json: ${slug}`);
     return item;
   });
-
-  const duplicates = slugs.filter((slug, index) => slugs.indexOf(slug) !== index);
-  failIfAny("Duplicate collection slugs in widget-eligible-collections.json", duplicates);
-  return slugs;
-}
-
-async function readJSON(filePath) {
-  return JSON.parse(await fs.readFile(filePath, "utf8"));
-}
-
-async function exists(filePath) {
-  try {
-    await fs.access(filePath, fsConstants.F_OK);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function collectFiles(directory, visit, relativeDirectory = "") {
-  const entries = await fs.readdir(path.join(directory, relativeDirectory), {
-    withFileTypes: true,
-  });
-  entries.sort((a, b) => a.name.localeCompare(b.name));
-
-  for (const entry of entries) {
-    const relativePath = path.join(relativeDirectory, entry.name);
-    const absolutePath = path.join(directory, relativePath);
-    if (entry.isDirectory()) {
-      await collectFiles(directory, visit, relativePath);
-    } else if (entry.isFile()) {
-      await visit(absolutePath, relativePath);
+  const outputPath = path.join(directory, "widget-items.json");
+  const expectedContent = `${JSON.stringify(selectedItems, null, 2)}\n`;
+  if (check) {
+    let actualContent;
+    try {
+      actualContent = await fs.readFile(outputPath, "utf8");
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
     }
-  }
-}
-
-async function checkOutput(outputDirectory, expectedFiles) {
-  const actualFiles = await listFiles(outputDirectory);
-  const failures = [];
-
-  for (const expectedPath of expectedFiles.keys()) {
-    if (!actualFiles.has(expectedPath)) {
-      failures.push(`missing ${path.join(outputDirectory, expectedPath)}`);
+    if (actualContent !== expectedContent) {
+      throw new Error("Generated widget resources are out of date; run node scripts/generate-widget-resources.mjs.");
     }
+  } else {
+    await fs.writeFile(outputPath, expectedContent);
   }
-
-  for (const actualPath of actualFiles) {
-    if (!expectedFiles.has(actualPath)) {
-      failures.push(`unexpected ${path.join(outputDirectory, actualPath)}`);
-    }
-  }
-
-  for (const [relativePath, expectedContent] of expectedFiles) {
-    if (!actualFiles.has(relativePath)) {
-      continue;
-    }
-    const actualContent = await fs.readFile(path.join(outputDirectory, relativePath));
-    if (!actualContent.equals(expectedContent)) {
-      failures.push(`changed ${path.join(outputDirectory, relativePath)}`);
-    }
-  }
-
-  if (failures.length > 0) {
-    throw new Error(`Generated widget resources are out of date:\n${failures.join("\n")}`);
-  }
-}
-
-async function listFiles(directory) {
-  if (!(await exists(directory))) {
-    return new Set();
-  }
-
-  const files = new Set();
-  await collectFiles(directory, async (_absolutePath, relativePath) => {
-    files.add(relativePath);
-  });
-  return files;
-}
-
-async function writeOutput(outputDirectory, files) {
-  await fs.rm(outputDirectory, { force: true, recursive: true });
-  for (const [relativePath, content] of files) {
-    const filePath = path.join(outputDirectory, relativePath);
-    await fs.mkdir(path.dirname(filePath), { recursive: true });
-    await fs.writeFile(filePath, content);
-  }
-}
-
-function failIfAny(title, values) {
-  if (values.length === 0) {
-    return;
-  }
-  throw new Error(`${title}:\n${Array.from(new Set(values)).join("\n")}`);
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const check = process.argv.includes("--check");
-  generateWidgetResources(suggestedItemsDirectory, { check }).then(() => {
-    if (check) {
-      console.log("Widget resources are current.");
-    } else {
-      console.log("Generated Suggested Items/WidgetSuggested.bundle");
-    }
-  }).catch((error) => {
-    console.error(error.message);
-    process.exit(1);
-  });
+  const flags = process.argv.slice(2);
+  if (flags.some((flag) => flag !== "--check")) {
+    console.error("Usage: node scripts/generate-widget-resources.mjs [--check]");
+    process.exitCode = 1;
+  } else {
+    const check = flags.includes("--check");
+    generateWidgetResources(suggestedItemsDirectory, { check }).then(() => {
+      console.log(check ? "Widget resources are current." : "Generated Suggested Items/widget-items.json");
+    }).catch((error) => {
+      console.error(error.message);
+      process.exitCode = 1;
+    });
+  }
 }

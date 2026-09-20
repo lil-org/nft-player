@@ -22,6 +22,8 @@ final class Navigator: NSObject, NSWindowDelegate {
         ensureFrontAfterOpening: Bool = false,
         transition: MacRouteTransition = .slide
     ) {
+        MacNavigationModel.shared.collectionPreparation.cancel()
+        showMainWindow()
         let request = playerPresentationGate.begin()
         Task {
             await showPlayerUsingProgress(
@@ -40,10 +42,12 @@ final class Navigator: NSObject, NSWindowDelegate {
         ensureFrontAfterOpening: Bool = false,
         transition: MacRouteTransition = .slide
     ) {
+        MacNavigationModel.shared.collectionPreparation.cancel()
+        showMainWindow()
         let request = playerPresentationGate.begin()
         Task {
             guard let snapshot = await playerPresentationSnapshot(for: request),
-                  playerPresentationGate.isPending(request) else {
+                  playerPresentationGate.isPending(request), !Task.isCancelled else {
                 return
             }
             let progress = snapshot.progress(collectionId: collectionId)
@@ -59,10 +63,12 @@ final class Navigator: NSObject, NSWindowDelegate {
     }
 
     func requestShuffledPlayer() {
+        MacNavigationModel.shared.collectionPreparation.cancel()
+        showMainWindow()
         let request = playerPresentationGate.begin()
         Task {
             guard let snapshot = await playerPresentationSnapshot(for: request),
-                  playerPresentationGate.isPending(request) else {
+                  playerPresentationGate.isPending(request), !Task.isCancelled else {
                 return
             }
 
@@ -87,6 +93,7 @@ final class Navigator: NSObject, NSWindowDelegate {
     }
 
     func cancelPendingPlayerPresentation() {
+        MacNavigationModel.shared.collectionPreparation.cancel()
         playerPresentationGate.cancel()
     }
 
@@ -94,9 +101,9 @@ final class Navigator: NSObject, NSWindowDelegate {
         for request: PlayerPresentationRequestGate.Request
     ) async -> PlayerViewingProgressSnapshot? {
         await PlayerPersistenceUpdates.flush()
-        guard playerPresentationGate.isPending(request) else { return nil }
+        guard playerPresentationGate.isPending(request), !Task.isCancelled else { return nil }
         let snapshot = await PlayerViewingProgressStore.shared.progressSnapshot()
-        guard playerPresentationGate.isPending(request) else { return nil }
+        guard playerPresentationGate.isPending(request), !Task.isCancelled else { return nil }
         return snapshot
     }
 
@@ -107,7 +114,7 @@ final class Navigator: NSObject, NSWindowDelegate {
         request: PlayerPresentationRequestGate.Request,
         preparedSnapshot: PlayerViewingProgressSnapshot? = nil
     ) async {
-        guard playerPresentationGate.isPending(request) else { return }
+        guard playerPresentationGate.isPending(request), !Task.isCancelled else { return }
         guard CollectionCatalog.allItems.contains(where: { $0.id == collectionId }) else { return }
 
         let snapshot: PlayerViewingProgressSnapshot
@@ -115,7 +122,7 @@ final class Navigator: NSObject, NSWindowDelegate {
             snapshot = preparedSnapshot
         } else {
             guard let loadedSnapshot = await playerPresentationSnapshot(for: request),
-                  playerPresentationGate.isPending(request) else {
+                  playerPresentationGate.isPending(request), !Task.isCancelled else {
                 return
             }
             snapshot = loadedSnapshot
@@ -133,7 +140,7 @@ final class Navigator: NSObject, NSWindowDelegate {
             return
         }
 
-        guard playerPresentationGate.isPending(request) else { return }
+        guard playerPresentationGate.isPending(request), !Task.isCancelled else { return }
         await showPlayer(
             collectionId: collectionId,
             initialTokenId: nil,
@@ -150,11 +157,13 @@ final class Navigator: NSObject, NSWindowDelegate {
         ensureFrontAfterOpening: Bool = false,
         completion: @escaping @MainActor () -> Void
     ) {
+        MacNavigationModel.shared.collectionPreparation.cancel()
+        showMainWindow()
         let request = playerPresentationGate.begin()
         Task {
             defer { completion() }
             await Task.yield()
-            guard playerPresentationGate.isPending(request) else { return }
+            guard playerPresentationGate.isPending(request), !Task.isCancelled else { return }
             if let tokenId {
                 await showPlayer(
                     collectionId: collectionId,
@@ -179,8 +188,23 @@ final class Navigator: NSObject, NSWindowDelegate {
         ensureFrontAfterOpening: Bool,
         request: PlayerPresentationRequestGate.Request
     ) async {
+        guard await MacNavigationModel.shared.collectionPreparation.prepare(
+            collectionId: collectionId,
+            isCurrent: { self.playerPresentationGate.isPending(request) },
+            retry: { [weak self] in
+                guard let self else { return }
+                Task {
+                    await self.showPlayer(
+                        collectionId: collectionId,
+                        widgetTokenId: widgetTokenId,
+                        ensureFrontAfterOpening: ensureFrontAfterOpening,
+                        request: request
+                    )
+                }
+            }
+        ) else { return }
         guard let snapshot = await playerPresentationSnapshot(for: request),
-              playerPresentationGate.isPending(request) else {
+              playerPresentationGate.isPending(request), !Task.isCancelled else {
             return
         }
         let progress = snapshot.progress(collectionId: collectionId)
@@ -199,7 +223,7 @@ final class Navigator: NSObject, NSWindowDelegate {
             return
         }
 
-        guard playerPresentationGate.isPending(request) else { return }
+        guard playerPresentationGate.isPending(request), !Task.isCancelled else { return }
         await commitPlayerPresentation(
             model: PlayerModel(widgetTokenInsertion: widgetTokenInsertion),
             continueViewingCollectionId: collectionId,
@@ -217,7 +241,24 @@ final class Navigator: NSObject, NSWindowDelegate {
         transition: MacRouteTransition,
         request: PlayerPresentationRequestGate.Request
     ) async {
-        guard playerPresentationGate.isPending(request) else { return }
+        guard await MacNavigationModel.shared.collectionPreparation.prepare(
+            collectionId: collectionId,
+            isCurrent: { self.playerPresentationGate.isPending(request) },
+            retry: { [weak self] in
+                guard let self else { return }
+                Task {
+                    await self.showPlayer(
+                        collectionId: collectionId,
+                        initialTokenId: initialTokenId,
+                        continueViewingCollectionId: continueViewingCollectionId,
+                        ensureFrontAfterOpening: ensureFrontAfterOpening,
+                        transition: transition,
+                        request: request
+                    )
+                }
+            }
+        ) else { return }
+        guard playerPresentationGate.isPending(request), !Task.isCancelled else { return }
         let preparedToken = PlayerTokenPrewarmer.preparedToken(
             initialCollectionId: collectionId,
             initialTokenId: initialTokenId
@@ -245,14 +286,14 @@ final class Navigator: NSObject, NSWindowDelegate {
         transition: MacRouteTransition,
         request: PlayerPresentationRequestGate.Request
     ) async {
-        guard playerPresentationGate.isPending(request) else { return }
+        guard playerPresentationGate.isPending(request), !Task.isCancelled else { return }
         let openingProgress = model.currentProgress
         let continueViewingUpdate: PlayerContinueViewingUpdate?
         if openingProgress == nil {
             continueViewingUpdate = await PlayerViewingProgressStore.shared
                 .prepareContinueViewingUpdate(collectionId: continueViewingCollectionId)
             guard continueViewingUpdate != nil,
-                  playerPresentationGate.isPending(request) else {
+                  playerPresentationGate.isPending(request), !Task.isCancelled else {
                 return
             }
         } else {

@@ -22,6 +22,7 @@ let package = Package(
                 "Models/CardNft2CardMetadata.swift",
                 "Models/CollectionBrowseThumbnails.swift",
                 "Models/CollectionCatalog.swift",
+                "Models/CollectionPreparationState.swift",
                 "Models/CollectionsGridScrollMemory.swift",
                 "Models/Consts.swift",
                 "Models/Images.swift",
@@ -65,6 +66,7 @@ let package = Package(
                 "Services/PlayerICloudSync.swift",
                 "Services/PersistentArtworkDependencyCache.swift",
                 "Services/PersistentCollectionCoverCache.swift",
+                "Services/PersistentCollectionTokenCache.swift",
                 "Services/CollectionCoverRecovery.swift",
                 "Services/PersistentJavaScriptLibrary.swift",
                 "Services/PersistentWebContentLoadGate.swift"

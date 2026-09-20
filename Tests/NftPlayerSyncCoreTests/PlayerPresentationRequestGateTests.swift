@@ -87,6 +87,50 @@ final class PlayerPresentationRequestGateTests: XCTestCase {
         XCTAssertEqual(recorder.events, ["present", "persist"])
     }
 
+    func testCompletedResolutionCancelsCapturedRequestOnce() {
+        let gate = PlayerPresentationRequestGate()
+        let recorder = PlayerPresentationRecorder()
+        let request = gate.begin()
+        let resolution = gate.resolutionForPendingRequest {
+            recorder.events.append("cancel")
+        }
+
+        resolution?(true)
+        resolution?(true)
+
+        XCTAssertFalse(gate.isPending(request))
+        XCTAssertEqual(recorder.events, ["cancel"])
+    }
+
+    func testCancelledResolutionDoesNotCancelCapturedRequest() {
+        let gate = PlayerPresentationRequestGate()
+        let recorder = PlayerPresentationRecorder()
+        let request = gate.begin()
+        let resolution = gate.resolutionForPendingRequest {
+            recorder.events.append("cancel")
+        }
+
+        resolution?(false)
+
+        XCTAssertTrue(gate.isPending(request))
+        XCTAssertTrue(recorder.events.isEmpty)
+    }
+
+    func testSupersededResolutionDoesNotRunCancellationHook() {
+        let gate = PlayerPresentationRequestGate()
+        let recorder = PlayerPresentationRecorder()
+        _ = gate.begin()
+        let resolution = gate.resolutionForPendingRequest {
+            recorder.events.append("cancel")
+        }
+        let replacementRequest = gate.begin()
+
+        resolution?(true)
+
+        XCTAssertTrue(gate.isPending(replacementRequest))
+        XCTAssertTrue(recorder.events.isEmpty)
+    }
+
     func testDeferredCommitRunsAfterCancelledResolution() async {
         await PlayerPersistenceUpdates.flush()
         let gate = PlayerPresentationRequestGate()

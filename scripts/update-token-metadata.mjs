@@ -15,7 +15,7 @@ const { decodeAspectRatioMetadata, normalizedRatio } = aspectRatios;
 const { assertValidInternalSlugs } = suggestedItems;
 const { decodeTokenManifest, serializeTokenManifest } = tokenManifest;
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const defaultBundleDirectory = path.join(repositoryRoot, "Suggested Items/Suggested.bundle");
+const defaultItemsPath = path.join(repositoryRoot, "Suggested Items/items.json");
 const metadataFields = ["bundledTokenCount", "hasUniformAspectRatio"];
 let mediaValidator;
 
@@ -80,10 +80,13 @@ export function tokenMetadata(collection, payload) {
 }
 
 export async function updateTokenMetadata({
-  bundleDirectory = defaultBundleDirectory,
+  itemsPath = defaultItemsPath,
+  manifestDirectory,
   check = false,
 } = {}) {
-  const itemsPath = path.join(bundleDirectory, "items.json");
+  if (typeof manifestDirectory !== "string" || manifestDirectory.length === 0) {
+    throw new Error("An external manifestDirectory is required; token manifests are hosted on the CDN.");
+  }
   const items = JSON.parse(await fs.readFile(itemsPath, "utf8"));
   if (!Array.isArray(items)) throw new TypeError("items.json must contain an array.");
   assertValidInternalSlugs(items);
@@ -98,7 +101,7 @@ export async function updateTokenMetadata({
     const updated = { ...item };
     metadataFields.forEach((field) => { delete updated[field]; });
     if (slug !== "card_nft_2" || item.script?.kind !== "native.card-nft-2") {
-      const tokenPath = path.join(bundleDirectory, "Tokens", `${slug}.json`);
+      const tokenPath = path.join(manifestDirectory, `${slug}.json`);
       let payload;
       let source;
       try {
@@ -142,7 +145,7 @@ export async function updateTokenMetadata({
   }
   const changedSlugs = new Set([...staleSlugs, ...staleManifests.map(({ slug }) => slug)]);
   if (check && changedSlugs.size > 0) {
-    throw new Error(`Generated token manifests or metadata are out of date; run node scripts/update-token-metadata.mjs:\n${[...changedSlugs].join("\n")}`);
+    throw new Error(`Generated token manifests or metadata are out of date; run node scripts/update-token-metadata.mjs --manifest-directory <directory>:\n${[...changedSlugs].join("\n")}`);
   }
   if (!check) {
     for (const { tokenPath, expected } of staleManifests) await fs.writeFile(tokenPath, expected);
@@ -153,15 +156,27 @@ export async function updateTokenMetadata({
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const flags = process.argv.slice(2);
-  if (flags.some((flag) => flag !== "--check")) {
-    console.error("Usage: node scripts/update-token-metadata.mjs [--check]");
-    process.exitCode = 1;
-  } else {
-    updateTokenMetadata({ check: flags.includes("--check") }).then(({ collections, tokens, updated }) => {
+  const options = {};
+  try {
+    for (let index = 0; index < flags.length; index += 1) {
+      const flag = flags[index];
+      if (flag === "--check") {
+        options.check = true;
+      } else if (["--manifest-directory", "--items-path"].includes(flag)
+          && flags[index + 1] && !flags[index + 1].startsWith("--")) {
+        options[flag === "--manifest-directory" ? "manifestDirectory" : "itemsPath"] = path.resolve(flags[++index]);
+      } else {
+        throw new Error("Usage: node scripts/update-token-metadata.mjs --manifest-directory <directory> [--items-path <items.json>] [--check]");
+      }
+    }
+    updateTokenMetadata(options).then(({ collections, tokens, updated }) => {
       console.log(`Token manifests and metadata verified: ${collections} collections, ${tokens} tokens, ${updated} updated.`);
     }).catch((error) => {
       console.error(error.message);
       process.exitCode = 1;
     });
+  } catch (error) {
+    console.error(error.message);
+    process.exitCode = 1;
   }
 }

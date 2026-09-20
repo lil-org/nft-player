@@ -7,9 +7,8 @@ derived_data_path="${TEST_DERIVED_DATA_PATH:-$repo_root/build/test-derived-data}
 
 cd "$repo_root"
 
-echo "Checking compact token manifests and generated resources..."
-node --test "$repo_root/scripts/token-manifest.test.mjs" "$repo_root/scripts/update-token-metadata.test.mjs" "$repo_root/scripts/generate-widget-resources.test.mjs"
-node "$repo_root/scripts/update-token-metadata.mjs" --check
+echo "Checking token tooling and generated catalog resources..."
+node --test "$repo_root/scripts/token-manifest.test.mjs" "$repo_root/scripts/update-token-metadata.test.mjs" "$repo_root/scripts/generate-widget-resources.test.mjs" "$repo_root/scripts/hydrate-collection-test-manifests.test.mjs"
 node "$repo_root/scripts/generate-widget-resources.mjs" --check
 
 echo "Running Swift package tests..."
@@ -17,6 +16,8 @@ swift test --package-path "$repo_root"
 
 echo "Preparing pinned artwork sources for offline iOS rendering tests..."
 node "$repo_root/scripts/hydrate-artwork-test-sources.mjs"
+node "$repo_root/scripts/hydrate-collection-test-manifests.mjs"
+node "$repo_root/scripts/update-token-metadata.mjs" --manifest-directory "$repo_root/build/test-collection-manifests/CollectionManifests" --check
 
 if [[ -n "${IOS_TEST_DESTINATION:-}" ]]; then
   ios_test_destination="$IOS_TEST_DESTINATION"

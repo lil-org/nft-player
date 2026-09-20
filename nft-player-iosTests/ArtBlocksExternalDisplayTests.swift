@@ -3,7 +3,7 @@ import WebKit
 import XCTest
 @testable import nft_player_ios
 
-nonisolated final class ArtBlocksExternalDisplayTests: XCTestCase {}
+nonisolated final class ArtBlocksExternalDisplayTests: CollectionTokenFixtureTestCase {}
 
 @MainActor
 private final class ExternalDisplayDocumentProbe: NSObject, WKScriptMessageHandler {

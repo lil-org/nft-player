@@ -4,9 +4,9 @@ import WebKit
 import XCTest
 @testable import nft_player_ios
 
-nonisolated final class PersistentArtworkDependencyLoadingTests: XCTestCase {}
+nonisolated final class PersistentArtworkDependencyLoadingTests: CollectionTokenFixtureTestCase {}
 
-nonisolated final class ArtworkContentResolverTests: XCTestCase {}
+nonisolated final class ArtworkContentResolverTests: CollectionTokenFixtureTestCase {}
 
 private actor ArtworkSourceTransport {
     private(set) var urls: [URL] = []

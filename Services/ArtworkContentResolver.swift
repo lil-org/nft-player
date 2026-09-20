@@ -56,6 +56,9 @@ nonisolated enum ArtworkContentResolver {
                   dependency.sha256 == request.sha256 else {
                 throw Failure.invalidReference
             }
+            try await CollectionCatalog.prepareCollection(
+                collectionId: item.id, allowsDownloads: allowsDownloads
+            )
             guard let tokenIndex = TokenGenerator.tokenIndex(specificCollectionId: item.id, tokenId: request.tokenId),
                   let token = TokenGenerator.bundledWebGenerativeToken(specificCollectionId: item.id, tokenIndex: tokenIndex) else {
                 throw Failure.unavailableToken

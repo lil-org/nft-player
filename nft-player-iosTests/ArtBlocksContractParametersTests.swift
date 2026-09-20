@@ -4,7 +4,7 @@ import WebKit
 import XCTest
 @testable import nft_player_ios
 
-nonisolated final class ArtBlocksContractParametersTests: XCTestCase {}
+nonisolated final class ArtBlocksContractParametersTests: CollectionTokenFixtureTestCase {}
 
 @MainActor
 private final class ContractParametersFixture: NSObject, WKScriptMessageHandler {
@@ -265,7 +265,7 @@ extension ArtBlocksContractParametersTests {
         for item in affected {
             XCTAssertTrue(TokenGenerator.usesArtBlocksRenderer(collectionId: item.id))
             let script = try bundledScript(item)
-            let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: item.id))
+            let tokens = try XCTUnwrap(SuggestedItemsService.cachedTokens(collectionId: item.id))
             if item.name == "pool party" {
                 XCTAssertEqual(tokens.items.count, 20)
             } else {
@@ -296,7 +296,7 @@ extension ArtBlocksContractParametersTests {
         let item = try XCTUnwrap(SuggestedItemsService.allItems.first { $0.name == name })
         XCTAssertTrue(TokenGenerator.usesArtBlocksRenderer(collectionId: item.id))
         let script = try bundledScript(item)
-        let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: item.id))
+        let tokens = try XCTUnwrap(SuggestedItemsService.cachedTokens(collectionId: item.id))
         let rules = try await WKContentRuleListStore.default().compileContentRuleList(
             forIdentifier: "ArtBlocksContractParametersOffline",
             encodedContentRuleList: #"[{"trigger":{"url-filter":"^https?://"},"action":{"type":"block"}}]"#

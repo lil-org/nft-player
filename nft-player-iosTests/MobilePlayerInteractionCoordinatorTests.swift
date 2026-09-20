@@ -2,7 +2,7 @@ import UIKit
 import XCTest
 @testable import nft_player_ios
 
-nonisolated final class MobilePlayerInteractionCoordinatorTests: XCTestCase {}
+nonisolated final class MobilePlayerInteractionCoordinatorTests: CollectionTokenFixtureTestCase {}
 
 private actor PlayerInteractionTestViewingTracker:
     MobilePlaybackViewingSessionTracking {

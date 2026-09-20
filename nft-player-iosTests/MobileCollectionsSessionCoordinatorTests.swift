@@ -4,7 +4,7 @@ import Foundation
 import XCTest
 @testable import nft_player_ios
 
-nonisolated final class MobileCollectionsSessionCoordinatorTests: XCTestCase {
+nonisolated final class MobileCollectionsSessionCoordinatorTests: CollectionTokenFixtureTestCase {
     override func tearDown() async throws {
         await PlayerPersistenceUpdates.flush()
         try await super.tearDown()
@@ -507,11 +507,287 @@ extension MobileCollectionsSessionCoordinatorTests {
         )
     }
 
+    func testCompletedBackCancelsManifestPreparationAndWidgetHandoffImmediately() async throws {
+        let item = try firstCollectionItem()
+        let preparations = CoordinatorValueQueue<Void>()
+        let cancelled = expectation(description: "Manifest preparation cancelled")
+        let store = CoordinatorProgressStore()
+        let fixture = try makeFixture(store: store, prepareCollection: { _ in
+            await withTaskCancellationHandler {
+                await preparations.next()
+            } onCancel: {
+                cancelled.fulfill()
+            }
+            try Task.checkCancellation()
+        })
+        let url = try widgetURL(collectionId: item.id, tokenId: "widget-token")
+        let task = try XCTUnwrap(fixture.coordinator.handleOpenURL(url))
+        await assertWaiterCount(1, in: preparations)
+        let resolution = try XCTUnwrap(
+            fixture.coordinator.resolutionForPendingPresentationRequest()
+        )
+
+        resolution(true)
+
+        XCTAssertFalse(fixture.coordinator.collectionPreparation.isLoading)
+        XCTAssertFalse(fixture.widgetState.isPreparingWidgetPlayerPresentation)
+        XCTAssertNil(fixture.coordinator.collectionPreparation.errorMessage)
+        await fulfillment(of: [cancelled], timeout: 2)
+        await preparations.send(())
+        await task.value
+        XCTAssertNil(fixture.coordinator.playerConfig)
+        let metrics = await store.metrics()
+        XCTAssertTrue(metrics.preparedUpdates.isEmpty)
+        XCTAssertTrue(metrics.appliedUpdates.isEmpty)
+    }
+
+    func testCancelledBackKeepsManifestPreparationAndWidgetHandoff() async throws {
+        let item = try firstCollectionItem()
+        let insertion = makeWidgetInsertion(collectionId: item.id)
+        let preparations = CoordinatorValueQueue<Void>()
+        let fixture = try makeFixture(
+            store: CoordinatorProgressStore(),
+            widgetTokenInsertion: insertion,
+            prepareCollection: { _ in
+                await preparations.next()
+                try Task.checkCancellation()
+            }
+        )
+        let url = try widgetURL(collectionId: item.id, tokenId: insertion.insertedToken.id)
+        let task = try XCTUnwrap(fixture.coordinator.handleOpenURL(url))
+        await assertWaiterCount(1, in: preparations)
+        let resolution = try XCTUnwrap(
+            fixture.coordinator.resolutionForPendingPresentationRequest()
+        )
+
+        resolution(false)
+
+        XCTAssertTrue(fixture.coordinator.collectionPreparation.isLoading)
+        XCTAssertTrue(fixture.widgetState.isPreparingWidgetPlayerPresentation)
+        await preparations.send(())
+        await task.value
+        let config = try XCTUnwrap(fixture.coordinator.playerConfig)
+        XCTAssertEqual(config.widgetTokenInsertion, insertion)
+        fixture.coordinator.didPresentPlayer(config)
+        XCTAssertFalse(fixture.widgetState.isPreparingWidgetPlayerPresentation)
+    }
+
+    func testSupersededBackCompletionKeepsNewManifestPreparationAndWidgetHandoff() async throws {
+        let items = try firstCollectionItems(count: 2)
+        let insertion = makeWidgetInsertion(collectionId: items[1].id)
+        let preparations = CoordinatorValueQueue<Void>()
+        let fixture = try makeFixture(
+            store: CoordinatorProgressStore(),
+            widgetTokenInsertion: insertion,
+            prepareCollection: { _ in
+                await preparations.next()
+                try Task.checkCancellation()
+            }
+        )
+        let firstURL = try widgetURL(collectionId: items[0].id, tokenId: "first-token")
+        let firstTask = try XCTUnwrap(fixture.coordinator.handleOpenURL(firstURL))
+        await assertWaiterCount(1, in: preparations)
+        let resolution = try XCTUnwrap(
+            fixture.coordinator.resolutionForPendingPresentationRequest()
+        )
+        let secondURL = try widgetURL(collectionId: items[1].id, tokenId: insertion.insertedToken.id)
+        let secondTask = try XCTUnwrap(fixture.coordinator.handleOpenURL(secondURL))
+        await assertWaiterCount(2, in: preparations)
+
+        resolution(true)
+
+        XCTAssertTrue(fixture.coordinator.collectionPreparation.isLoading)
+        XCTAssertTrue(fixture.widgetState.isPreparingWidgetPlayerPresentation)
+        await preparations.send(())
+        await preparations.send(())
+        await firstTask.value
+        await secondTask.value
+        let config = try XCTUnwrap(fixture.coordinator.playerConfig)
+        XCTAssertEqual(config.initialItemId, items[1].id)
+        XCTAssertEqual(config.widgetTokenInsertion, insertion)
+        XCTAssertEqual(fixture.recorder.preparedRequests.count, 1)
+        fixture.coordinator.didPresentPlayer(config)
+        XCTAssertFalse(fixture.widgetState.isPreparingWidgetPlayerPresentation)
+    }
+
+    func testManifestPreparationKeepsCatalogVisibleUntilTokensAreReady() async throws {
+        let item = try firstCollectionItem()
+        let preparations = CoordinatorValueQueue<Void>()
+        let store = CoordinatorProgressStore()
+        let fixture = try makeFixture(store: store, prepareCollection: { _ in
+            await preparations.next()
+        })
+        await fixture.coordinator.refreshViewingProgress(id: 0)
+
+        let task = fixture.coordinator.requestCollectionOpen(collectionId: item.id)
+        await assertWaiterCount(1, in: preparations)
+
+        XCTAssertTrue(fixture.coordinator.collectionPreparation.isLoading)
+        XCTAssertTrue(fixture.coordinator.isReadyToRevealNavigation)
+        XCTAssertNil(fixture.coordinator.playerConfig)
+        XCTAssertTrue(fixture.recorder.preparedRequests.isEmpty)
+        let pendingMetrics = await store.metrics()
+        XCTAssertTrue(pendingMetrics.preparedUpdates.isEmpty)
+        XCTAssertTrue(pendingMetrics.appliedUpdates.isEmpty)
+
+        await preparations.send(())
+        let didOpen = await task.value
+        XCTAssertTrue(didOpen)
+        XCTAssertFalse(fixture.coordinator.collectionPreparation.isLoading)
+        XCTAssertEqual(fixture.coordinator.playerConfig?.initialItemId, item.id)
+    }
+
+    func testManifestFailureDoesNotSaveProgressAndRetryPreservesSavedPosition() async throws {
+        let item = try firstCollectionItem()
+        let progress = makeProgress(collectionId: item.id, tokenIndex: 4)
+        let store = CoordinatorProgressStore(progressByCollectionId: [item.id: progress])
+        let retryPreparation = CoordinatorValueQueue<Void>()
+        var attempts = 0
+        let fixture = try makeFixture(store: store, prepareCollection: { _ in
+            attempts += 1
+            if attempts == 1 { throw URLError(.notConnectedToInternet) }
+            await retryPreparation.next()
+        })
+
+        let didOpen = await fixture.coordinator.requestResumeViewing(progress).value
+        XCTAssertFalse(didOpen)
+        XCTAssertNotNil(fixture.coordinator.collectionPreparation.errorMessage)
+        XCTAssertNil(fixture.coordinator.playerConfig)
+        let failedMetrics = await store.metrics()
+        XCTAssertTrue(failedMetrics.preparedUpdates.isEmpty)
+        XCTAssertTrue(failedMetrics.appliedUpdates.isEmpty)
+
+        fixture.coordinator.collectionPreparation.retry()
+        await assertWaiterCount(1, in: retryPreparation)
+        XCTAssertNil(fixture.coordinator.collectionPreparation.errorMessage)
+        await retryPreparation.send(())
+        await assertPlayerPresented(fixture.coordinator)
+        XCTAssertEqual(attempts, 2)
+        XCTAssertEqual(fixture.coordinator.playerConfig?.initialItemId, item.id)
+        XCTAssertEqual(fixture.coordinator.playerConfig?.initialTokenId, progress.tokenId)
+        XCTAssertEqual(fixture.coordinator.playerConfig?.initialTokenIndex, progress.tokenIndex)
+    }
+
+    func testCancelledManifestPreparationNeverPresentsOrSaves() async throws {
+        let item = try firstCollectionItem()
+        let preparations = CoordinatorValueQueue<Void>()
+        let store = CoordinatorProgressStore()
+        let fixture = try makeFixture(store: store, prepareCollection: { _ in
+            await preparations.next()
+        })
+        let task = fixture.coordinator.requestCollectionOpen(collectionId: item.id)
+        await assertWaiterCount(1, in: preparations)
+
+        fixture.coordinator.cancel()
+        await preparations.send(())
+        let didOpen = await task.value
+        await PlayerPersistenceUpdates.flush()
+
+        XCTAssertFalse(didOpen)
+        XCTAssertFalse(fixture.coordinator.collectionPreparation.isLoading)
+        XCTAssertNil(fixture.coordinator.collectionPreparation.errorMessage)
+        XCTAssertNil(fixture.coordinator.playerConfig)
+        let metrics = await store.metrics()
+        XCTAssertTrue(metrics.preparedUpdates.isEmpty)
+        XCTAssertTrue(metrics.appliedUpdates.isEmpty)
+    }
+
+    func testSupersededManifestCompletionCannotReplaceNewSelection() async throws {
+        let items = try firstCollectionItems(count: 2)
+        let preparations = CoordinatorValueQueue<Void>()
+        let fixture = try makeFixture(store: CoordinatorProgressStore(), prepareCollection: { id in
+            if id == items[0].id { await preparations.next() }
+        })
+        let firstTask = fixture.coordinator.requestCollectionOpen(collectionId: items[0].id)
+        await assertWaiterCount(1, in: preparations)
+        let secondResult = await fixture.coordinator.requestCollectionOpen(collectionId: items[1].id).value
+        await preparations.send(())
+        let firstResult = await firstTask.value
+
+        XCTAssertFalse(firstResult)
+        XCTAssertTrue(secondResult)
+        XCTAssertEqual(fixture.coordinator.playerConfig?.initialItemId, items[1].id)
+        XCTAssertEqual(fixture.recorder.preparedRequests.count, 1)
+        XCTAssertNil(fixture.coordinator.collectionPreparation.errorMessage)
+    }
+
+    func testWidgetRetryKeepsTokenAndDefersInsertionUntilManifestIsReady() async throws {
+        let item = try firstCollectionItem()
+        let insertion = makeWidgetInsertion(collectionId: item.id)
+        let preparations = CoordinatorValueQueue<Void>()
+        var attempts = 0
+        let fixture = try makeFixture(
+            store: CoordinatorProgressStore(),
+            widgetTokenInsertion: insertion,
+            prepareCollection: { _ in
+                attempts += 1
+                if attempts == 1 { throw URLError(.notConnectedToInternet) }
+                await preparations.next()
+            }
+        )
+        await fixture.coordinator.refreshViewingProgress(id: 0)
+        let url = try widgetURL(collectionId: item.id, tokenId: insertion.insertedToken.id)
+        prepareWidgetLaunch(url, fixture: fixture)
+        let task = try XCTUnwrap(fixture.coordinator.handleOpenURL(url))
+        await task.value
+
+        XCTAssertTrue(fixture.recorder.widgetRequests.isEmpty)
+        XCTAssertTrue(fixture.coordinator.isReadyToRevealNavigation)
+        XCTAssertFalse(fixture.widgetState.isPreparingWidgetPlayerPresentation)
+        fixture.coordinator.collectionPreparation.retry()
+        await assertWaiterCount(1, in: preparations)
+        XCTAssertTrue(fixture.recorder.widgetRequests.isEmpty)
+        await preparations.send(())
+        await assertPlayerPresented(fixture.coordinator)
+        XCTAssertEqual(fixture.recorder.widgetRequests.first?.tokenId, insertion.insertedToken.id)
+        XCTAssertEqual(fixture.coordinator.playerConfig?.widgetTokenInsertion, insertion)
+    }
+
+    func testSelectingCollectionUnstagesSupersededWidgetDownloadImmediately() async throws {
+        let items = try firstCollectionItems(count: 2)
+        let preparations = CoordinatorValueQueue<Void>()
+        let fixture = try makeFixture(store: CoordinatorProgressStore(), prepareCollection: { id in
+            if id == items[0].id { await preparations.next() }
+        })
+        await fixture.coordinator.refreshViewingProgress(id: 0)
+        let url = try widgetURL(collectionId: items[0].id, tokenId: "widget-token")
+        prepareWidgetLaunch(url, fixture: fixture)
+        let firstTask = try XCTUnwrap(fixture.coordinator.handleOpenURL(url))
+        await assertWaiterCount(1, in: preparations)
+        XCTAssertTrue(fixture.coordinator.isReadyToRevealNavigation)
+
+        let didOpen = await fixture.coordinator.requestCollectionOpen(collectionId: items[1].id).value
+        XCTAssertTrue(didOpen)
+        XCTAssertTrue(fixture.coordinator.isReadyToRevealNavigation)
+        XCTAssertFalse(fixture.widgetState.isPreparingWidgetPlayerPresentation)
+        XCTAssertEqual(fixture.coordinator.playerConfig?.initialItemId, items[1].id)
+
+        await preparations.send(())
+        await firstTask.value
+        XCTAssertEqual(fixture.coordinator.playerConfig?.initialItemId, items[1].id)
+        XCTAssertTrue(fixture.recorder.widgetRequests.isEmpty)
+    }
+
+    private func assertPlayerPresented(
+        _ coordinator: MobileCollectionsSessionCoordinator,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(2))
+        while clock.now < deadline {
+            if coordinator.playerConfig != nil { return }
+            try? await Task.sleep(for: .milliseconds(1))
+        }
+        XCTFail("Expected player presentation", file: file, line: line)
+    }
+
     private func makeFixture(
         store: CoordinatorProgressStore,
         widgetTokenInsertion: PlayerWidgetTokenInsertion? = nil,
         prewarmCollectionIds: [String] = ["prewarm"],
-        flushQueue: CoordinatorValueQueue<Void>? = nil
+        flushQueue: CoordinatorValueQueue<Void>? = nil,
+        prepareCollection: @escaping @MainActor (String) async throws -> Void = { _ in }
     ) throws -> CoordinatorFixture {
         let items = try firstCollectionItems(count: 2)
         let widgetState = WidgetLaunchPresentationState()
@@ -525,6 +801,7 @@ extension MobileCollectionsSessionCoordinatorTests {
                     await flushQueue.next()
                 }
             },
+            prepareCollection: prepareCollection,
             canOpenCollection: { visibleCollectionIds.contains($0) },
             makeWidgetTokenInsertion: { collectionId, tokenId, progress in
                 recorder.widgetRequests.append(

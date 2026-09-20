@@ -4,7 +4,7 @@ import WebKit
 import XCTest
 @testable import nft_player_ios
 
-nonisolated final class ArtBlocksRenderingResolutionTests: XCTestCase {}
+nonisolated final class ArtBlocksRenderingResolutionTests: CollectionTokenFixtureTestCase {}
 
 @MainActor
 private final class ResolutionDocumentProbe: NSObject, WKScriptMessageHandler {
@@ -535,7 +535,7 @@ extension ArtBlocksRenderingResolutionTests {
         let catalog = try JSONDecoder().decode([SuggestedItem].self, from: Data(contentsOf: catalogURL))
         let item = try XCTUnwrap(catalog.first { $0.name.trimmingCharacters(in: .whitespacesAndNewlines) == name })
         let scriptURL = try XCTUnwrap(JavaScriptLibraryFixtures.scriptURL(collectionId: item.id))
-        let tokenURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: item.id))
+        let tokenURL = try XCTUnwrap(CollectionTokenFixtures.url(collectionId: item.id))
         let originalSource = try Data(contentsOf: scriptURL)
         let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: item.id))
         let tokens = try BundledTokens(data: Data(contentsOf: tokenURL)).items.resolvingAspectRatios(default: item.aspectRatio)

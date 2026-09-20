@@ -127,8 +127,8 @@ nonisolated enum CollectionOfTheDayWidgetData {
         date.addingTimeInterval(retryInterval)
     }
 
-    static func randomStaticImageReference(collection: WidgetCollection) -> WidgetStaticImageReference? {
-        staticImageReferences(collection: collection).randomElement()
+    static func randomStaticImageReference(collection: WidgetCollection) async -> WidgetStaticImageReference? {
+        await staticImageReferences(collection: collection).randomElement()
     }
 
     static func cachedImage(collectionId: String) -> CachedImage? {
@@ -236,7 +236,7 @@ nonisolated enum CollectionOfTheDayWidgetData {
     }
 
     private static func catalogCollections() -> [WidgetCollection] {
-        guard let url = suggestedBundle.url(forResource: "items", withExtension: "json"),
+        guard let url = Bundle.main.url(forResource: "widget-items", withExtension: "json"),
               let data = try? Data(contentsOf: url),
               let items = try? JSONDecoder().decode([WidgetCollection].self, from: data) else {
             return []
@@ -245,38 +245,22 @@ nonisolated enum CollectionOfTheDayWidgetData {
         return items
     }
 
-    private static func tokenPayload(collection: WidgetCollection) -> WidgetTokenPayload? {
-        let resourceName = collection.bundledResourceName
-        let url = suggestedBundle.url(forResource: resourceName, withExtension: "json", subdirectory: "Tokens")
-            ?? suggestedBundle.url(forResource: resourceName.lowercased(), withExtension: "json", subdirectory: "Tokens")
-        guard let url,
-              let data = try? Data(contentsOf: url),
-              let payload = try? JSONDecoder().decode(WidgetTokenPayload.self, from: data) else {
-            return nil
+    @concurrent
+    private static func staticImageReferences(collection: WidgetCollection) async -> [WidgetStaticImageReference] {
+        if let cached = staticImageReferenceCache.withLock({ $0[collection.id] }) {
+            return cached
         }
-        return payload
-    }
-
-    private static func staticImageReferences(collection: WidgetCollection) -> [WidgetStaticImageReference] {
-        if let cachedImageReferences = staticImageReferenceCache.withLock({ $0[collection.id] }) {
-            return cachedImageReferences
-        }
-
-        let imageReferences: [WidgetStaticImageReference]
-        if let payload = tokenPayload(collection: collection) {
-            imageReferences = payload.items.compactMap { item in
-                item.staticImageReference(collection: collection)
+        do {
+            let data = try await PersistentCollectionTokenCache.shared.data(for: collection.bundledResourceName)
+            let payload = try JSONDecoder().decode(WidgetTokenPayload.self, from: data)
+            let references = payload.items.compactMap { $0.staticImageReference(collection: collection) }
+            return staticImageReferenceCache.withLock { cache in
+                if let cached = cache[collection.id] { return cached }
+                cache[collection.id] = references
+                return references
             }
-        } else {
-            imageReferences = []
-        }
-
-        return staticImageReferenceCache.withLock { cache in
-            if let cachedImageReferences = cache[collection.id] {
-                return cachedImageReferences
-            }
-            cache[collection.id] = imageReferences
-            return imageReferences
+        } catch {
+            return []
         }
     }
 
@@ -301,14 +285,6 @@ nonisolated enum CollectionOfTheDayWidgetData {
             return nil
         }
         return tokenId
-    }
-
-    private static var suggestedBundle: Bundle {
-        if let bundleURL = Bundle.main.url(forResource: "WidgetSuggested", withExtension: "bundle"),
-           let bundle = Bundle(url: bundleURL) {
-            return bundle
-        }
-        return Bundle.main
     }
 
     private static var localGregorianCalendar: Calendar {

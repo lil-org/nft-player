@@ -5,7 +5,7 @@ import XCTest
 import WebKit
 @testable import nft_player_ios
 
-nonisolated final class ArtBlocksBundledResourceTests: XCTestCase {}
+nonisolated final class ArtBlocksBundledResourceTests: CollectionTokenFixtureTestCase {}
 
 @MainActor
 private final class HypertypeFixtureAssetHandler: NSObject, WKURLSchemeHandler {
@@ -300,7 +300,7 @@ extension ArtBlocksBundledResourceTests {
 
     private func hypertypeResources() throws -> (Script, BundledTokens) {
         let identifier = "0xbb5471c292065d3b01b2e81e299267221ae9a2500"
-        let tokensURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: identifier))
+        let tokensURL = try XCTUnwrap(CollectionTokenFixtures.url(collectionId: identifier))
         return (
             try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: identifier)),
             try BundledTokens(data: Data(contentsOf: tokensURL))

@@ -78,12 +78,18 @@ enum PlayerTokenPrewarmer {
             return
         }
 
+        defer { requestedKeys.remove(key) }
         guard let token = await generateToken(for: key) else { return }
         prewarmedTokens[key] = token
     }
 
     @concurrent
     private static func generateToken(for key: TokenKey) async -> GeneratedToken? {
+        do {
+            try await CollectionCatalog.prepareCollection(collectionId: key.collectionId, allowsDownloads: false)
+        } catch {
+            return nil
+        }
         let tokenIndex: Int
         if let tokenId = key.tokenId {
             guard let requestedTokenIndex = CollectionCatalog.tokenIndex(specificCollectionId: key.collectionId, tokenId: tokenId) else {

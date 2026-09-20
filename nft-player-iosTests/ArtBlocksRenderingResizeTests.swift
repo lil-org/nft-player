@@ -3,7 +3,7 @@ import WebKit
 import XCTest
 @testable import nft_player_ios
 
-nonisolated final class ArtBlocksRenderingResizeTests: XCTestCase {}
+nonisolated final class ArtBlocksRenderingResizeTests: CollectionTokenFixtureTestCase {}
 
 private actor PreviewResizeViewingTracker: MobilePlaybackViewingSessionTracking {
     func prepareRestartUpdate(collectionId: String?) async -> PlayerContinueViewingUpdate? { nil }
@@ -26,7 +26,7 @@ private final class PreviewResizeDocumentProbe: NSObject, WKScriptMessageHandler
 extension ArtBlocksRenderingResizeTests {
     func testVisiblePreviewReloadsOnceAfterSettledResizeAndCanPageForward() async throws {
         let item = try XCTUnwrap(SuggestedItemsService.allItems.filter { $0.generativeOnly == true }.first { $0.name == "Afterimage" })
-        let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: item.id))
+        let tokens = try XCTUnwrap(SuggestedItemsService.cachedTokens(collectionId: item.id))
         let registry = MobilePlaybackSessionRegistry(dependencies: .init(
             makeViewingSessionTracker: { _ in PreviewResizeViewingTracker() },
             clearActiveMediaWindow: { _ in },
@@ -136,7 +136,7 @@ extension ArtBlocksRenderingResizeTests {
 
     func testFittedPlaybackFollowsPerTokenRatiosAcrossNavigationAndResize() async throws {
         let item = try XCTUnwrap(SuggestedItemsService.allItems.first { $0.internalSlug == "neighborhood" })
-        let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: item.id)).items
+        let tokens = try XCTUnwrap(SuggestedItemsService.cachedTokens(collectionId: item.id)).items
             .resolvingAspectRatios(default: item.aspectRatio)
         let registry = MobilePlaybackSessionRegistry(dependencies: .init(
             makeViewingSessionTracker: { _ in PreviewResizeViewingTracker() },

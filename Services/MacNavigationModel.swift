@@ -89,6 +89,8 @@ final class MacNavigationModel {
 
     static let shared = MacNavigationModel()
 
+    let collectionPreparation = CollectionPreparationState()
+
     private(set) var route: MacRoute = .collections
     private(set) var title = Strings.nftPlayer
     private(set) var canBookmarkCurrentToken = false
