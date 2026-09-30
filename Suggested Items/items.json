@@ -99,7 +99,10 @@
     "collectionId": "b22836540fa4e773a3309425fef939c8",
     "name": "AlgoRhythms",
     "internal_slug": "algorhythms",
-    "artists": [],
+    "artists": [
+      "nicolas_daniel",
+      "han_saglam"
+    ],
     "script": {
       "kind": "tone",
       "expectedByteCount": 25503,
@@ -1134,7 +1137,10 @@
     "collectionId": "7f17b4e6be5195e890b0c774f131e6db",
     "name": "Contrast Agent",
     "internal_slug": "contrast_agent",
-    "artists": [],
+    "artists": [
+      "tim_richardson",
+      "sean_zellmer"
+    ],
     "script": {
       "kind": "regl",
       "expectedByteCount": 20277,
@@ -1224,7 +1230,9 @@
     "collectionId": "0b8cfd2706187fc99ea72079591a5f00",
     "name": "Square Symphony",
     "internal_slug": "square_symphony",
-    "artists": [],
+    "artists": [
+      "okazz"
+    ],
     "script": {
       "kind": "p5js100",
       "expectedByteCount": 14977,
@@ -1730,7 +1738,9 @@
     "collectionId": "a98d925c2ade3926b27258313370e0ca",
     "name": "Diatom",
     "internal_slug": "diatom",
-    "artists": [],
+    "artists": [
+      "joshua_schachter"
+    ],
     "script": {
       "kind": "p5js100",
       "expectedByteCount": 3296,
@@ -1751,7 +1761,9 @@
     "collectionId": "6ab1d1cc5b3e340753db2932a2cb9b0f",
     "name": "Flows",
     "internal_slug": "flows",
-    "artists": [],
+    "artists": [
+      "ryley_o"
+    ],
     "iosCollectionBrowserColumnCount": 2,
     "script": {
       "kind": "p5js100",
@@ -2298,7 +2310,9 @@
     "collectionId": "8da8f87a831b5ae57695411ade574ef3",
     "name": "Assemblage",
     "internal_slug": "assemblage",
-    "artists": [],
+    "artists": [
+      "k2xl"
+    ],
     "script": {
       "kind": "three",
       "expectedByteCount": 35708,
@@ -2436,7 +2450,9 @@
     "tokenCount": 10000,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "finiliar",
-    "artists": [],
+    "artists": [
+      "ed_fornieles"
+    ],
     "urlPrefix": "https://cdn.lil.org/player/finiliar/",
     "aspectRatio": [
       1,
@@ -2808,7 +2824,9 @@
     "tokenCount": 150,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "bonkler",
-    "artists": [],
+    "artists": [
+      "sonora_sprite"
+    ],
     "urlPrefix": "https://cdn.lil.org/player/bonkler/",
     "aspectRatio": [
       3,
@@ -3050,7 +3068,11 @@
     "tokenCount": 1933,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "nouns",
-    "artists": [],
+    "artists": [
+      "gremplin",
+      "timpers",
+      "punk4156"
+    ],
     "urlPrefix": "https://cdn.lil.org/player/nouns/",
     "aspectRatio": [
       1,
@@ -3067,7 +3089,10 @@
     "tokenCount": 545,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "gushies",
-    "artists": [],
+    "artists": [
+      "supermetal_bosch",
+      "wretched_wurm"
+    ],
     "urlPrefix": "https://cdn.lil.org/player/gushies/",
     "aspectRatio": [
       1,
@@ -3144,7 +3169,10 @@
     "tokenCount": 3333,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "sproto_gremlins",
-    "artists": [],
+    "artists": [
+      "juicyunlimited",
+      "nick44"
+    ],
     "urlPrefix": "https://cdn.lil.org/player/sproto_gremlins/",
     "aspectRatio": [
       1,
@@ -3241,7 +3269,9 @@
     "tokenCount": 500,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "changing_places",
-    "artists": [],
+    "artists": [
+      "simon_raion_lavi"
+    ],
     "iosCollectionBrowserColumnCount": 2,
     "urlPrefix": "https://cdn.lil.org/player/changing_places/",
     "aspectRatio": [
@@ -4708,7 +4738,9 @@
     "standardThumbsPathsAvailable": true,
     "sizedThumbsIndexOffset": 1,
     "internal_slug": "artifact_magazine_3",
-    "artists": [],
+    "artists": [
+      "gucci4mycat"
+    ],
     "urlPrefix": "https://cdn.lil.org/player/artifact_magazine_3/",
     "aspectRatio": [
       1,
@@ -4725,7 +4757,10 @@
     "tokenCount": 1968,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "rare_weitsmans",
-    "artists": [],
+    "artists": [
+      "jared_madere",
+      "fairybaby420"
+    ],
     "urlPrefix": "https://cdn.lil.org/player/rare_weitsmans/",
     "aspectRatio": [
       1,
@@ -4776,7 +4811,9 @@
     "tokenCount": 415,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "matchstick",
-    "artists": [],
+    "artists": [
+      "fatemeh_alipour"
+    ],
     "urlPrefix": "https://cdn.lil.org/player/matchstick/",
     "aspectRatio": [
       1,
@@ -4793,7 +4830,10 @@
     "tokenCount": 14997,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "planet_peppa",
-    "artists": [],
+    "artists": [
+      "guppy",
+      "one_two_sl333p"
+    ],
     "urlPrefix": "https://cdn.lil.org/player/planet_peppa/",
     "aspectRatio": [
       1,
@@ -4815,7 +4855,8 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "srdan_sarovic_una_popovic"
+      "srdan_sarovic",
+      "una_popovic"
     ],
     "internal_slug": "logoria",
     "standardThumbsPathsAvailable": true,
@@ -4901,9 +4942,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "generative_goods"
-    ],
+    "artists": [],
     "internal_slug": "micro",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -5104,9 +5143,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "pab"
-    ],
+    "artists": [],
     "internal_slug": "aceleraciones",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -5222,7 +5259,7 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "hackatao_plus_insigt"
+      "salvatore_savasta"
     ],
     "internal_slug": "aleph0",
     "standardThumbsPathsAvailable": true,
@@ -5367,7 +5404,7 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "iryanbell"
+      "ryan_bell"
     ],
     "internal_slug": "and_yet_we_love",
     "standardThumbsPathsAvailable": true,
@@ -5512,7 +5549,8 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "devi_parikh_and_abhishek_das"
+      "devi_parikh",
+      "abhishek_das"
     ],
     "internal_slug": "aragnation",
     "standardThumbsPathsAvailable": true,
@@ -5541,7 +5579,9 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "emily_edelman_dima_ofman_andrew_badr"
+      "emily_edelman",
+      "dima_ofman",
+      "andrew_badr"
     ],
     "internal_slug": "asemica",
     "standardThumbsPathsAvailable": true,
@@ -5774,9 +5814,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "jimishim"
-    ],
+    "artists": [],
     "internal_slug": "autopoiesis",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -5834,7 +5872,8 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "kelly_milligan_x_amber_vittoria"
+      "kelly_milligan",
+      "amber_vittoria"
     ],
     "internal_slug": "balance_2",
     "standardThumbsPathsAvailable": true,
@@ -5863,7 +5902,7 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "motus_art"
+      "owen_mcateer"
     ],
     "internal_slug": "balletic",
     "standardThumbsPathsAvailable": true,
@@ -5892,9 +5931,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "bucky"
-    ],
+    "artists": [],
     "internal_slug": "bauhaus_synthesis",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -6039,7 +6076,7 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "eboy"
+      "steffen_sauerteig"
     ],
     "internal_slug": "blockbob_rorschach",
     "standardThumbsPathsAvailable": true,
@@ -6154,9 +6191,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "raregonzo"
-    ],
+    "artists": [],
     "internal_slug": "breathe_you",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -6183,9 +6218,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "wawaa"
-    ],
+    "artists": [],
     "internal_slug": "brickwork",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -6270,9 +6303,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "steen_neo"
-    ],
+    "artists": [],
     "internal_slug": "calendart",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -6357,9 +6388,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "bucky"
-    ],
+    "artists": [],
     "internal_slug": "can_you_see_it",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -6387,7 +6416,7 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "michelangelo_encapsuled"
+      "encapsuled"
     ],
     "internal_slug": "carattere",
     "standardThumbsPathsAvailable": true,
@@ -6476,7 +6505,8 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "laya_mathikshara_santiago"
+      "laya_mathikshara",
+      "santiago"
     ],
     "internal_slug": "cerebellum",
     "standardThumbsPathsAvailable": true,
@@ -6797,7 +6827,7 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "motus_art"
+      "owen_mcateer"
     ],
     "internal_slug": "contours",
     "standardThumbsPathsAvailable": true,
@@ -7028,9 +7058,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "proof_of_beauty_studios"
-    ],
+    "artists": [],
     "internal_slug": "deconstructed_city_plans",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -7087,7 +7115,7 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "ryleyoeth_x_sally_ohlsen"
+      "ryley_o"
     ],
     "internal_slug": "degenerative",
     "standardThumbsPathsAvailable": true,
@@ -7153,9 +7181,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "autonymous"
-    ],
+    "artists": [],
     "internal_slug": "delights",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -7270,9 +7296,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "sabha"
-    ],
+    "artists": [],
     "internal_slug": "downtown",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -7474,7 +7498,7 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "generative_artworks"
+      "alex_supkay"
     ],
     "internal_slug": "enchiridion",
     "standardThumbsPathsAvailable": true,
@@ -7679,7 +7703,7 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "rvig_medecins_sans_frontieres_msf"
+      "rvig"
     ],
     "internal_slug": "field_impact",
     "standardThumbsPathsAvailable": true,
@@ -7998,7 +8022,7 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "dca"
+      "daniel_calderon_arenas"
     ],
     "internal_slug": "genesis",
     "standardThumbsPathsAvailable": true,
@@ -8152,9 +8176,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "eliya_stein"
-    ],
+    "artists": [],
     "internal_slug": "gravity_grid",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -8239,9 +8261,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "sabha"
-    ],
+    "artists": [],
     "internal_slug": "hash",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -8628,7 +8648,8 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "kalis"
+      "wouter_kalis",
+      "rosco_kalis"
     ],
     "internal_slug": "imperfections",
     "standardThumbsPathsAvailable": true,
@@ -8685,9 +8706,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "eliya_stein"
-    ],
+    "artists": [],
     "internal_slug": "incantation",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -8832,7 +8851,7 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "henrysdev_amnda"
+      "henrysdev"
     ],
     "internal_slug": "isodream",
     "standardThumbsPathsAvailable": true,
@@ -8889,9 +8908,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "eliya_stein"
-    ],
+    "artists": [],
     "internal_slug": "labyrometry",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -9094,7 +9111,7 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "itsgalo_x_office_ca"
+      "itsgalo"
     ],
     "internal_slug": "lightweight_reconstruction",
     "standardThumbsPathsAvailable": true,
@@ -9123,7 +9140,7 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "michelangelo_encapsuled"
+      "encapsuled"
     ],
     "internal_slug": "linea",
     "standardThumbsPathsAvailable": true,
@@ -9181,9 +9198,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "eliya_stein"
-    ],
+    "artists": [],
     "internal_slug": "liquid_ruminations",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -9532,7 +9547,8 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "fabianospeziari_x_donnoh"
+      "fabiano_speziari",
+      "donnoh"
     ],
     "internal_slug": "mental_pathways",
     "standardThumbsPathsAvailable": true,
@@ -9589,9 +9605,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "third_vision"
-    ],
+    "artists": [],
     "internal_slug": "miragem",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -9853,7 +9867,8 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "ilithya_x_erin_wajufos"
+      "ilithya",
+      "erin_wajufos"
     ],
     "internal_slug": "net_net_net",
     "standardThumbsPathsAvailable": true,
@@ -9998,7 +10013,8 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "rizzle_sebi_miguelgarest"
+      "rizzle",
+      "miguelgarest"
     ],
     "internal_slug": "onchainchain",
     "standardThumbsPathsAvailable": true,
@@ -10172,7 +10188,8 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "aaron_penne_x_boreta"
+      "aaron_penne",
+      "boreta"
     ],
     "internal_slug": "passages",
     "standardThumbsPathsAvailable": true,
@@ -10288,9 +10305,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "punch_card_collective"
-    ],
+    "artists": [],
     "internal_slug": "perpetua",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -10317,9 +10332,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "omri_tintpulver"
-    ],
+    "artists": [],
     "internal_slug": "pigs_tail",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -10346,9 +10359,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "kai"
-    ],
+    "artists": [],
     "internal_slug": "pixel_glass",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -10376,7 +10387,7 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "basement_x_ryleyo"
+      "ryley_o"
     ],
     "internal_slug": "pool_party",
     "standardThumbsPathsAvailable": true,
@@ -10529,7 +10540,7 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "insight"
+      "salvatore_savasta"
     ],
     "internal_slug": "quantum_collapses",
     "standardThumbsPathsAvailable": true,
@@ -10615,9 +10626,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "tara_donovan"
-    ],
+    "artists": [],
     "internal_slug": "qwerty",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -10733,7 +10742,7 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "julian_hespenheide_the_generative_art_museum"
+      "julian_hespenheide"
     ],
     "internal_slug": "ratio",
     "standardThumbsPathsAvailable": true,
@@ -11169,9 +11178,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "orpheusk"
-    ],
+    "artists": [],
     "internal_slug": "scribblines",
     "standardThumbsPathsAvailable": true,
     "iosCollectionBrowserColumnCount": 2,
@@ -11258,9 +11265,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "espina"
-    ],
+    "artists": [],
     "internal_slug": "sigils",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -11374,9 +11379,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "mark_cotton"
-    ],
+    "artists": [],
     "internal_slug": "space_birds",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -11404,7 +11407,7 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "whalestreet_x_pxlq"
+      "pxlq"
     ],
     "internal_slug": "space_debris_maider",
     "standardThumbsPathsAvailable": true,
@@ -11519,9 +11522,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "philip_bell"
-    ],
+    "artists": [],
     "internal_slug": "staccato",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -11607,7 +11608,8 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "nathaniel_stern_and_sasha_stiles"
+      "nathaniel_stern",
+      "sasha_stiles"
     ],
     "internal_slug": "still_moving",
     "standardThumbsPathsAvailable": true,
@@ -11694,9 +11696,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "jimishim"
-    ],
+    "artists": [],
     "internal_slug": "striation",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -11869,9 +11869,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "chaosconstruct"
-    ],
+    "artists": [],
     "internal_slug": "synapses",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -11899,7 +11897,8 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "claudia_hart_and_andrew_blanton"
+      "claudia_hart",
+      "andrew_blanton"
     ],
     "internal_slug": "systems_madness",
     "standardThumbsPathsAvailable": true,
@@ -11928,7 +11927,7 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "michelangelo_encapsuled"
+      "encapsuled"
     ],
     "internal_slug": "testo",
     "standardThumbsPathsAvailable": true,
@@ -11987,7 +11986,8 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "camille_roux_x_matthieu_segret"
+      "camille_roux",
+      "matthieu_segret"
     ],
     "internal_slug": "the_destination",
     "standardThumbsPathsAvailable": true,
@@ -12074,7 +12074,7 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "amy_goodchild_x_the_generative_art_museum"
+      "amy_goodchild"
     ],
     "internal_slug": "the_light_where_we_meet",
     "standardThumbsPathsAvailable": true,
@@ -12161,7 +12161,8 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "vera_molnar_in_collaboration_with_martin_grasser"
+      "vera_molnar",
+      "martin_grasser"
     ],
     "internal_slug": "themes_and_variations",
     "standardThumbsPathsAvailable": true,
@@ -12277,7 +12278,7 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "abieyuwa_and_sabha"
+      "abieyuwa"
     ],
     "internal_slug": "through_my_windshield",
     "standardThumbsPathsAvailable": true,
@@ -12334,9 +12335,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "lovid"
-    ],
+    "artists": [],
     "internal_slug": "tide_predictor",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -12422,9 +12421,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "steen_x_neo"
-    ],
+    "artists": [],
     "internal_slug": "time_squared",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -12539,7 +12536,7 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "hal09999_x_the_generative_art_museum"
+      "hal09999"
     ],
     "internal_slug": "transformations_du_champ",
     "standardThumbsPathsAvailable": true,
@@ -12803,9 +12800,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "ge1doot"
-    ],
+    "artists": [],
     "internal_slug": "utopia",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -12890,9 +12885,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "sabha"
-    ],
+    "artists": [],
     "internal_slug": "vessel",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -12950,7 +12943,7 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "bustavo_x_the_generative_art_museum"
+      "bustavo"
     ],
     "internal_slug": "vivoteca",
     "standardThumbsPathsAvailable": true,
@@ -13124,9 +13117,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "espina"
-    ],
+    "artists": [],
     "internal_slug": "warp_2",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -13211,9 +13202,7 @@
     "generativeOnly": true,
     "hasCover": true,
     "hasThumbnails": true,
-    "artists": [
-      "volekr"
-    ],
+    "artists": [],
     "internal_slug": "whispers_of_motion_fiat_pass",
     "standardThumbsPathsAvailable": true,
     "script": {
@@ -13241,7 +13230,7 @@
     "hasCover": true,
     "hasThumbnails": true,
     "artists": [
-      "frederik_vanhoutte_x_the_generative_art_museum"
+      "frederik_vanhoutte"
     ],
     "internal_slug": "winterkammer",
     "standardThumbsPathsAvailable": true,
@@ -13399,9 +13388,7 @@
     "chain": "ethereum",
     "chainId": 1,
     "internal_slug": "memory_loss",
-    "artists": [
-      "andrew_mitchell"
-    ],
+    "artists": [],
     "tokenCount": 256,
     "standardThumbsPathsAvailable": true,
     "hasCover": true,
@@ -13468,9 +13455,7 @@
     "chain": "ethereum",
     "chainId": 42161,
     "internal_slug": "talim",
-    "artists": [
-      "jonny_baho"
-    ],
+    "artists": [],
     "tokenCount": 99,
     "standardThumbsPathsAvailable": true,
     "hasCover": true,
@@ -13538,7 +13523,7 @@
     "chainId": 1,
     "internal_slug": "whispering_sands",
     "artists": [
-      "obvious"
+      "hugo_caselles_dupre"
     ],
     "tokenCount": 100,
     "standardThumbsPathsAvailable": true,

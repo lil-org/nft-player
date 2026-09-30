@@ -825,6 +825,15 @@ extension ArtBlocksCatalogTests {
     func testApprovedCollectionsHaveCoversAndBrowsersWithGenerativeOnlyPlayback() throws {
         XCTAssertEqual(SuggestedItemsService.allItems.count, 529)
         XCTAssertEqual(additions.count, 292)
+        let unassignedArtistSlugs: Set<String> = [
+            "aceleraciones", "autopoiesis", "bauhaus_synthesis", "breathe_you", "brickwork",
+            "calendart", "can_you_see_it", "deconstructed_city_plans", "delights",
+            "downtown", "gravity_grid", "hash", "incantation", "labyrometry",
+            "liquid_ruminations", "micro", "miragem", "perpetua", "pigs_tail", "pixel_glass", "qwerty",
+            "scribblines", "sigils", "space_birds", "staccato", "striation",
+            "synapses", "tide_predictor", "time_squared", "utopia", "vessel", "warp_2",
+            "whispers_of_motion_fiat_pass"
+        ]
         var policies = [String: Int]()
         for item in additions {
             XCTAssertFalse(item.id.contains("dev-good"), item.name)
@@ -835,7 +844,8 @@ extension ArtBlocksCatalogTests {
             XCTAssertEqual(item.standardThumbsPathsAvailable, true)
             XCTAssertFalse(item.isDownloadableCollection)
             XCTAssertNil(item.tokenCount)
-            XCTAssertFalse(item.artists.isEmpty, item.name)
+            XCTAssertEqual(item.artists.isEmpty, unassignedArtistSlugs.contains(item.internalSlug ?? ""), item.name)
+            XCTAssertEqual(SuggestedItemsService.artists(forCollectionId: item.id).count, item.artists.count, item.name)
             XCTAssertTrue(SuggestedItemsService.visibleItems.contains { $0.id == item.id })
             XCTAssertTrue(CollectionCatalog.allItems.contains { $0.id == item.id && $0.hasCover })
             let slug = try XCTUnwrap(item.internalSlug, item.name)
@@ -1023,19 +1033,19 @@ extension ArtBlocksCatalogTests {
 
     func testPreparedStaticCollectionsOpenWithCoversAndPreservedCDNMediaIdentity() throws {
         let collections = [
-            ("bokeh", 300, "mpkoz"),
-            ("glass", 300, "eric_de_giuli"),
-            ("memory_loss", 256, "andrew_mitchell"),
-            ("primavera", 70, "baret_lavida"),
-            ("subtraction_reconfiguration", 100, "juan_pedro_vallejo"),
-            ("talim", 99, "jonny_baho"),
-            ("the_colors_that_heal", 142, "ryan_green"),
-            ("twos", 64, "emily_edelman"),
-            ("whispering_sands", 100, "obvious"),
-            ("windwoven", 110, "radix")
+            ("bokeh", 300, ["mpkoz"]),
+            ("glass", 300, ["eric_de_giuli"]),
+            ("memory_loss", 256, []),
+            ("primavera", 70, ["baret_lavida"]),
+            ("subtraction_reconfiguration", 100, ["juan_pedro_vallejo"]),
+            ("talim", 99, []),
+            ("the_colors_that_heal", 142, ["ryan_green"]),
+            ("twos", 64, ["emily_edelman"]),
+            ("whispering_sands", 100, ["hugo_caselles_dupre"]),
+            ("windwoven", 110, ["radix"])
         ]
         var total = 0
-        for (slug, count, artist) in collections {
+        for (slug, count, artists) in collections {
             let item = try XCTUnwrap(SuggestedItemsService.allItems.first { $0.internalSlug == slug })
             XCTAssertEqual(item.chain, .ethereum)
             XCTAssertEqual(item.chainId, slug == "talim" ? 42161 : 1)
@@ -1046,7 +1056,7 @@ extension ArtBlocksCatalogTests {
             XCTAssertEqual(item.standardThumbsPathsAvailable, true)
             XCTAssertNil(item.sizedThumbsIndexOffset)
             XCTAssertNotNil(item.bundledDate?.range(of: "^\\d{4}-\\d{2}-\\d{2}$", options: .regularExpression))
-            XCTAssertEqual(SuggestedItemsService.artists(forCollectionId: item.id).map(\.id), [artist])
+            XCTAssertEqual(SuggestedItemsService.artists(forCollectionId: item.id).map(\.id), artists)
             XCTAssertTrue(SuggestedItemsService.visibleItems.contains(item))
             XCTAssertTrue(CollectionCatalog.allItems.contains { $0.id == item.id && $0.hasCover })
             XCTAssertTrue(CollectionCatalog.canOpenCollection(specificCollectionId: item.id))

@@ -35,7 +35,8 @@
     "bluesky": "https://bsky.app/profile/aaronpenne.io",
     "collections": [
       "one_more_day",
-      "receive_transmission"
+      "receive_transmission",
+      "passages"
     ]
   },
   "alejandro_cartagena": {
@@ -215,8 +216,10 @@
     "name": "fairybaby420",
     "x": "https://x.com/fairybaby420",
     "collections": [
-      "chomsky_honks"
-    ]
+      "chomsky_honks",
+      "rare_weitsmans"
+    ],
+    "website": "https://www.fairybaby.xyz/"
   },
   "fernando_jerez": {
     "name": "Fernando Jerez",
@@ -261,11 +264,12 @@
     ]
   },
   "gucci4mycat": {
-    "name": "gucci4mycat",
+    "name": "duguccipourmonchat",
     "x": "https://x.com/gucci4mycat",
     "collections": [
       "artifact_magazine_2",
-      "reverie"
+      "reverie",
+      "artifact_magazine_3"
     ]
   },
   "harm_van_den_dorpel": {
@@ -327,8 +331,11 @@
   "jared_madere": {
     "name": "Jared Madere",
     "collections": [
-      "tents"
-    ]
+      "tents",
+      "rare_weitsmans"
+    ],
+    "website": "https://jaredmadere.ooo/",
+    "x": "https://x.com/jaredmadere"
   },
   "jason_ting": {
     "name": "Jason Ting",
@@ -421,7 +428,8 @@
     "x": "https://x.com/julihespenheide",
     "website": "https://www.julian-h.de/",
     "collections": [
-      "kernels"
+      "kernels",
+      "ratio"
     ]
   },
   "kazuhiro_tanimoto": {
@@ -660,7 +668,9 @@
     "website": "https://motus.art/",
     "bluesky": "https://bsky.app/profile/motus.art",
     "collections": [
-      "fragmented_perception"
+      "fragmented_perception",
+      "balletic",
+      "contours"
     ]
   },
   "owen_moore": {
@@ -949,7 +959,8 @@
       "super_metal_mons_2",
       "super_sofubi",
       "swag_pack",
-      "tubbypxgan"
+      "tubbypxgan",
+      "gushies"
     ]
   },
   "terrorism": {
@@ -1016,12 +1027,6 @@
       "mi_note_3"
     ]
   },
-  "srdan_sarovic_una_popovic": {
-    "name": "Srđan Šarović, Una Popović",
-    "collections": [
-      "logoria"
-    ]
-  },
   "fingacode": {
     "name": "fingacode",
     "collections": [
@@ -1029,7 +1034,9 @@
       "jazz",
       "nth_culture",
       "translucent_panes"
-    ]
+    ],
+    "website": "https://fingacode.com",
+    "x": "https://x.com/fingacode"
   },
   "shvembldr": {
     "name": "Shvembldr",
@@ -1037,33 +1044,37 @@
       "postkonstrukt",
       "alien_dna",
       "ieva"
-    ]
-  },
-  "generative_goods": {
-    "name": "Generative Goods",
-    "collections": [
-      "micro"
-    ]
+    ],
+    "website": "https://shvembldr.com/",
+    "x": "https://x.com/shvembldr"
   },
   "bard_ionson": {
     "name": "Bård Ionson",
     "collections": [
       "8"
-    ]
+    ],
+    "website": "https://bardionson.com/",
+    "x": "https://x.com/BardIonson",
+    "bluesky": "https://bsky.app/profile/bardionson.bsky.social"
   },
   "daniel_catt": {
     "name": "Daniel Catt",
     "collections": [
       "70s_pop_series_one",
       "70s_pop_series_two"
-    ]
+    ],
+    "website": "https://revdancatt.com/",
+    "x": "https://x.com/revdancatt",
+    "bluesky": "https://bsky.app/profile/revdancatt.com"
   },
   "zach_lieberman": {
     "name": "Zach Lieberman",
     "collections": [
       "100_sunsets",
       "box_light_studies"
-    ]
+    ],
+    "x": "https://x.com/zachlieberman",
+    "bluesky": "https://bsky.app/profile/zachlieberman.bsky.social"
   },
   "alexis_andre": {
     "name": "Alexis André",
@@ -1072,26 +1083,28 @@
       "decores",
       "friendship_bracelets",
       "void"
-    ]
+    ],
+    "x": "https://x.com/MacTuitui",
+    "bluesky": "https://bsky.app/profile/mactuitui.bsky.social"
   },
   "martin_grasser": {
     "name": "Martin Grasser",
     "collections": [
       "a_temporary_arrangement_of_material",
-      "love"
-    ]
-  },
-  "pab": {
-    "name": "pab",
-    "collections": [
-      "aceleraciones"
-    ]
+      "love",
+      "themes_and_variations"
+    ],
+    "website": "https://martingrasser.com/",
+    "x": "https://x.com/martingrasser"
   },
   "jorge_ledezma": {
     "name": "Jorge Ledezma",
     "collections": [
       "aitherios"
-    ]
+    ],
+    "website": "https://ledezma.art/",
+    "x": "https://x.com/zjorge",
+    "bluesky": "https://bsky.app/profile/zjorge.bsky.social"
   },
   "rvig": {
     "name": "RVig",
@@ -1099,83 +1112,82 @@
       "alchimie",
       "flowers",
       "nebula",
-      "volute"
-    ]
-  },
-  "hackatao_plus_insigt": {
-    "name": "HACKATAO + Insigℏt",
-    "collections": [
-      "aleph0"
-    ]
+      "volute",
+      "field_impact"
+    ],
+    "website": "https://rvig.art/",
+    "x": "https://x.com/rvig_art",
+    "bluesky": "https://bsky.app/profile/rvig.art"
   },
   "robert_hodgin": {
     "name": "Robert Hodgin",
     "collections": [
       "ancient_courses_of_fictional_rivers",
       "latent_spirits"
-    ]
-  },
-  "iryanbell": {
-    "name": "iRyanBell",
-    "collections": [
-      "and_yet_we_love"
-    ]
+    ],
+    "website": "https://roberthodgin.com/",
+    "bluesky": "https://bsky.app/profile/roberthodgin.bsky.social"
   },
   "eltono": {
     "name": "Eltono",
     "collections": [
       "andradite",
       "swing"
-    ]
+    ],
+    "website": "https://www.eltono.com/",
+    "x": "https://x.com/Eltono",
+    "bluesky": "https://bsky.app/profile/eltono.bsky.social"
   },
   "william_mapan": {
     "name": "William Mapan",
     "collections": [
       "anticyclone"
-    ]
+    ],
+    "website": "https://william-mapan.com/",
+    "x": "https://x.com/williamapan",
+    "bluesky": "https://bsky.app/profile/williamapan.bsky.social"
   },
   "akira_ishi": {
     "name": "Akira Ishi",
     "collections": [
       "aodach"
-    ]
+    ],
+    "website": "https://akiraishi.com/",
+    "x": "https://x.com/leAkira_Ishi",
+    "bluesky": "https://bsky.app/profile/akiraishi.bsky.social"
   },
   "cory_haber": {
     "name": "Cory Haber",
     "collections": [
       "apophenies"
-    ]
-  },
-  "devi_parikh_and_abhishek_das": {
-    "name": "Devi Parikh and Abhishek Das",
-    "collections": [
-      "aragnation"
-    ]
-  },
-  "emily_edelman_dima_ofman_andrew_badr": {
-    "name": "Emily Edelman - Dima Ofman - Andrew Badr",
-    "collections": [
-      "asemica"
-    ]
+    ],
+    "website": "https://www.programmableart.com/",
+    "x": "https://x.com/Cory_Haber"
   },
   "tezumie": {
     "name": "Tezumie",
     "collections": [
       "assembly"
-    ]
+    ],
+    "website": "https://tezumie.github.io/",
+    "x": "https://x.com/tezumies",
+    "bluesky": "https://bsky.app/profile/tezumie.bsky.social"
   },
   "steganon": {
     "name": "steganon",
     "collections": [
       "assorted_positivity",
       "autology"
-    ]
+    ],
+    "x": "https://x.com/steganon"
   },
   "falko": {
     "name": "Falko",
     "collections": [
       "asterisms"
-    ]
+    ],
+    "website": "https://pedrofalco.com/",
+    "x": "https://x.com/_pedrofalco"
   },
   "eric_de_giuli": {
     "name": "Eric De Giuli",
@@ -1185,497 +1197,449 @@
       "cathedral_study",
       "pax",
       "glass"
-    ]
+    ],
+    "website": "https://eeedg.ca/",
+    "x": "https://x.com/eeedg__",
+    "bluesky": "https://bsky.app/profile/ericdegiuli.bsky.social"
   },
   "jos_vromans": {
     "name": "Jos Vromans",
     "collections": [
       "attraction",
       "incircles"
-    ]
+    ],
+    "website": "https://www.josvromans.art/",
+    "x": "https://x.com/JosVromans",
+    "bluesky": "https://bsky.app/profile/josvromans.art"
   },
   "yazid": {
     "name": "Yazid",
     "collections": [
       "automatism"
-    ]
-  },
-  "jimishim": {
-    "name": "jimishim",
-    "collections": [
-      "autopoiesis",
-      "striation"
-    ]
-  },
-  "kelly_milligan_x_amber_vittoria": {
-    "name": "Kelly Milligan x Amber Vittoria",
-    "collections": [
-      "balance_2"
-    ]
-  },
-  "motus_art": {
-    "name": "Motus Art",
-    "collections": [
-      "balletic",
-      "contours"
-    ]
-  },
-  "bucky": {
-    "name": "Bucky",
-    "collections": [
-      "bauhaus_synthesis",
-      "can_you_see_it"
-    ]
+    ],
+    "website": "https://linktr.ee/__yazid__",
+    "x": "https://x.com/Yazid",
+    "bluesky": "https://bsky.app/profile/yazid.bsky.social"
   },
   "ryan_green": {
     "name": "Ryan Green",
     "collections": [
       "beauty_in_the_hurting",
       "the_colors_that_heal"
-    ]
+    ],
+    "x": "https://x.com/ryangreen8",
+    "bluesky": "https://bsky.app/profile/ryangreen8.bsky.social"
   },
   "lia": {
     "name": "LIA",
     "collections": [
       "being_yourself_while_fitting_in",
       "little_boxes_on_the_hillsides_child"
-    ]
+    ],
+    "website": "https://www.liaworks.com/",
+    "x": "https://x.com/liasomething",
+    "bluesky": "https://bsky.app/profile/liasomething.bsky.social"
   },
   "ippsketch": {
     "name": "ippsketch",
     "collections": [
       "bent"
-    ]
+    ],
+    "website": "https://ippsketch.com/",
+    "x": "https://x.com/ippsketch"
   },
   "numbersinmotion": {
     "name": "NumbersInMotion",
     "collections": [
       "blaschke_ballet",
       "watercolor_dreams"
-    ]
-  },
-  "eboy": {
-    "name": "eBoy",
-    "collections": [
-      "blockbob_rorschach"
-    ]
+    ],
+    "x": "https://x.com/numsinmotion"
   },
   "anna_carreras": {
     "name": "Anna Carreras",
     "collections": [
       "brava",
       "trossets"
-    ]
-  },
-  "raregonzo": {
-    "name": "raregonzo",
-    "collections": [
-      "breathe_you"
-    ]
-  },
-  "wawaa": {
-    "name": "WAWAA",
-    "collections": [
-      "brickwork"
-    ]
+    ],
+    "website": "https://www.annacarreras.com/",
+    "x": "https://x.com/carreras_anna"
   },
   "heeey": {
     "name": "Heeey",
     "collections": [
       "bright",
       "transit"
-    ]
-  },
-  "steen_neo": {
-    "name": "steen & n-e-o",
-    "collections": [
-      "calendart"
-    ]
+    ],
+    "website": "https://heeey.art",
+    "x": "https://x.com/heeey_eth"
   },
   "juan_rodriguez_garcia": {
     "name": "Juan Rodríguez García",
     "collections": [
       "caminos",
       "memorias_del_espacio_olvidado"
-    ]
-  },
-  "michelangelo_encapsuled": {
-    "name": "michelangelo (encapsuled)",
-    "collections": [
-      "carattere",
-      "linea",
-      "testo"
-    ]
+    ],
+    "website": "https://www.juanrg92.com/",
+    "x": "https://x.com/_juanrg92"
   },
   "hevey": {
     "name": "Hevey",
     "collections": [
       "cells"
-    ]
-  },
-  "laya_mathikshara_santiago": {
-    "name": "Laya Mathikshara & Santiago",
-    "collections": [
-      "cerebellum"
-    ]
+    ],
+    "website": "https://hevey.art/",
+    "x": "https://x.com/HeveyArt"
   },
   "xnmtrc": {
     "name": "xnmtrc",
     "collections": [
       "chroma_genesis"
-    ]
+    ],
+    "website": "https://sadikaksu.com/",
+    "x": "https://x.com/xnmtrc"
   },
   "encapsuled": {
     "name": "encapsuled",
     "collections": [
-      "chronicles"
-    ]
+      "chronicles",
+      "carattere",
+      "linea",
+      "testo"
+    ],
+    "website": "https://encapsuled.xyz/",
+    "x": "https://x.com/encapsuled_",
+    "bluesky": "https://bsky.app/profile/encapsuled.xyz"
   },
   "sarasmith": {
     "name": "SaraSmith",
     "collections": [
       "cityzen"
-    ]
+    ],
+    "x": "https://x.com/Sara___Smith___"
   },
   "phenomena": {
     "name": "phenomena",
     "collections": [
       "classical_revival",
       "longing"
-    ]
+    ],
+    "website": "https://www.ronentanchum.art/",
+    "x": "https://x.com/ronentanchum"
   },
   "tottyeth_totdgbtagb": {
-    "name": "totty.eth (totdgbtagb)",
+    "name": "totty.eth",
     "collections": [
       "cohesion"
-    ]
+    ],
+    "website": "https://linktr.ee/totty.eth",
+    "x": "https://x.com/totdgbtagb"
   },
   "john_f_simon_jr": {
     "name": "John F. Simon, Jr.",
     "collections": [
       "complexcity_20002023"
-    ]
+    ],
+    "website": "https://www.iclock.com/",
+    "bluesky": "https://bsky.app/profile/jfsjr.bsky.social",
+    "x": "https://x.com/Every_Icon"
   },
   "buitrago": {
     "name": "Buitrago",
     "collections": [
       "creative_chaos",
       "mental_entanglement"
-    ]
+    ],
+    "x": "https://x.com/buitrago91",
+    "website": "https://fabianbuitrago.co/"
   },
   "devi_parikh": {
     "name": "Devi Parikh",
     "collections": [
-      "cushions"
-    ]
+      "cushions",
+      "aragnation"
+    ],
+    "website": "https://deviparikh.com/",
+    "bluesky": "https://bsky.app/profile/deviparikh.bsky.social",
+    "x": "https://x.com/deviparikh"
   },
   "pxlq": {
     "name": "pxlq",
     "collections": [
       "cyber_cities",
       "dynamic_slices",
-      "hieroglyphs"
-    ]
+      "hieroglyphs",
+      "space_debris_maider"
+    ],
+    "x": "https://x.com/pxlqqq"
   },
   "modnar_wolf": {
     "name": "MODNAR WOLF",
     "collections": [
       "dear_hash"
-    ]
-  },
-  "proof_of_beauty_studios": {
-    "name": "Proof of Beauty Studios",
-    "collections": [
-      "deconstructed_city_plans"
-    ]
-  },
-  "ryleyoeth_x_sally_ohlsen": {
-    "name": "ryley-o.eth x Sally Ohlsen",
-    "collections": [
-      "degenerative"
-    ]
-  },
-  "autonymous": {
-    "name": "Autonymous",
-    "collections": [
-      "delights"
-    ]
+    ],
+    "bluesky": "https://bsky.app/profile/modnarwolf.bsky.social"
   },
   "andreas_gysin": {
     "name": "Andreas Gysin",
     "collections": [
       "descent"
-    ]
-  },
-  "sabha": {
-    "name": "Sabha",
-    "collections": [
-      "downtown",
-      "hash",
-      "vessel"
-    ]
+    ],
+    "website": "https://ertdfgcvb.xyz/",
+    "x": "https://x.com/andreasgysin",
+    "bluesky": "https://bsky.app/profile/ertdfgcvb.xyz"
   },
   "joshua_bagley": {
     "name": "Joshua Bagley",
     "collections": [
       "dreams",
       "mister_shifty_and_the_drifty_dudes"
-    ]
+    ],
+    "website": "https://joshua-bagley.com/",
+    "x": "https://x.com/gengeomergence",
+    "bluesky": "https://bsky.app/profile/joshuabagley.bsky.social"
   },
   "holger_lippmann": {
     "name": "Holger Lippmann",
     "collections": [
       "epastel_ii"
-    ]
-  },
-  "generative_artworks": {
-    "name": "Generative Artworks",
-    "collections": [
-      "enchiridion"
-    ]
+    ],
+    "website": "https://e-art.co/",
+    "x": "https://x.com/wowgreat"
   },
   "rudxane": {
     "name": "rudxane",
     "collections": [
       "encore",
       "fold_2"
-    ]
+    ],
+    "x": "https://x.com/rudxane1"
   },
   "cyberia": {
     "name": "cyberia",
     "collections": [
       "fermented_fruit"
-    ]
-  },
-  "rvig_medecins_sans_frontieres_msf": {
-    "name": "RVig × Médecins Sans Frontières (MSF)",
-    "collections": [
-      "field_impact"
-    ]
+    ],
+    "website": "https://cyberia.codes/"
   },
   "sebastian_brocher_cryptoarte": {
     "name": "Sebastián Brocher (CryptoArte)",
     "collections": [
       "fluiroso",
       "rotor"
-    ]
+    ],
+    "website": "https://www.cryptoarte.io/",
+    "x": "https://x.com/CryptoArte"
   },
   "manuel_larino": {
     "name": "Manuel Larino",
     "collections": [
       "forecast",
       "gift_of_time"
-    ]
+    ],
+    "website": "https://mlarino.com/",
+    "x": "https://x.com/ManuelLarino"
   },
   "matt_kane": {
     "name": "Matt Kane",
     "collections": [
       "gazers"
-    ]
-  },
-  "dca": {
-    "name": "DCA",
-    "collections": [
-      "genesis"
-    ]
+    ],
+    "website": "https://mattkane.com/",
+    "x": "https://x.com/MattKaneArtist",
+    "bluesky": "https://bsky.app/profile/mattkane.bsky.social"
   },
   "rich_lord": {
     "name": "Rich Lord",
     "collections": [
       "geometry_runners"
-    ]
+    ],
+    "website": "https://www.richlord.com/",
+    "bluesky": "https://bsky.app/profile/richlord.bsky.social",
+    "x": "https://x.com/rich_lord"
   },
   "emily_nicoll": {
     "name": "Emily Nicoll",
     "collections": [
       "geophylla"
-    ]
+    ],
+    "website": "https://enicoll.com",
+    "x": "https://x.com/ENICOLL"
   },
   "jimmy_herdberg": {
     "name": "Jimmy Herdberg",
     "collections": [
       "gravity_16",
       "time_travel_in_a_subconscious_mind"
-    ]
-  },
-  "eliya_stein": {
-    "name": "Eliya Stein",
-    "collections": [
-      "gravity_grid",
-      "incantation",
-      "labyrometry",
-      "liquid_ruminations"
-    ]
+    ],
+    "website": "https://jmy.art/",
+    "x": "https://x.com/HerdbergJ"
   },
   "jess_hewitt": {
     "name": "Jess Hewitt",
     "collections": [
       "haywire_cafe"
-    ]
+    ],
+    "website": "https://jesshewitt.net/",
+    "bluesky": "https://bsky.app/profile/jesshewitt.net"
   },
   "anapet": {
     "name": "AnaPet",
     "collections": [
       "heartbeat"
-    ]
+    ],
+    "x": "https://x.com/AnaPetArt"
   },
   "sarah_ridgley": {
     "name": "Sarah Ridgley",
     "collections": [
       "himinn"
-    ]
+    ],
+    "website": "https://sarahridgley.com/",
+    "x": "https://x.com/sarah_ridgley",
+    "bluesky": "https://bsky.app/profile/sarahridgley.com"
   },
   "ryan_bell": {
     "name": "Ryan Bell",
     "collections": [
-      "hyper_drive_aside"
-    ]
+      "hyper_drive_aside",
+      "and_yet_we_love"
+    ],
+    "website": "https://iryanbell.com/",
+    "bluesky": "https://bsky.app/profile/iryanbell.bsky.social"
   },
   "mark_webster": {
     "name": "Mark Webster",
     "collections": [
       "hypertype"
-    ]
+    ],
+    "website": "https://mwebster.online/",
+    "x": "https://x.com/motiondesign_01",
+    "bluesky": "https://bsky.app/profile/markwebster01.bsky.social"
   },
   "nicole_vella": {
     "name": "Nicole Vella",
     "collections": [
       "if_you_could_do_it_all_again"
-    ]
-  },
-  "kalis": {
-    "name": "Kalis",
-    "collections": [
-      "imperfections"
-    ]
+    ],
+    "website": "https://nicolevella.com/",
+    "x": "https://x.com/nicolevellaart"
   },
   "p1x3lboy": {
     "name": "P1x3lboy",
     "collections": [
       "integration"
-    ]
+    ],
+    "website": "https://linktr.ee/p1x3lboy",
+    "x": "https://x.com/P1x3lboy",
+    "bluesky": "https://bsky.app/profile/p1x3lboy.bsky.social"
   },
   "camille_roux": {
     "name": "Camille Roux",
     "collections": [
-      "intricada"
-    ]
-  },
-  "henrysdev_amnda": {
-    "name": "henrysdev & AMNDA",
-    "collections": [
-      "isodream"
-    ]
+      "intricada",
+      "the_destination"
+    ],
+    "website": "https://art.camilleroux.com/",
+    "bluesky": "https://bsky.app/profile/art.camilleroux.com",
+    "x": "https://x.com/camillerouxart"
   },
   "james_dalessandro": {
     "name": "James Dalessandro",
     "collections": [
       "lacunae"
-    ]
+    ],
+    "website": "https://www.jamesdalessandro.com/"
   },
   "mitchell_f_chan": {
     "name": "Mitchell F. Chan",
     "collections": [
       "lewitt_generator_generator"
-    ]
-  },
-  "itsgalo_x_office_ca": {
-    "name": "itsgalo x office ca",
-    "collections": [
-      "lightweight_reconstruction"
-    ]
+    ],
+    "website": "https://mitchellfchan.com/",
+    "x": "https://x.com/mitchellfchan"
   },
   "kitel": {
     "name": "Kitel",
     "collections": [
       "lines_of_memories"
-    ]
+    ],
+    "x": "https://x.com/Kitel87"
   },
   "anna_lucia": {
     "name": "Anna Lucia",
     "collections": [
       "loom",
       "thread"
-    ]
+    ],
+    "website": "https://annalucia.io/",
+    "x": "https://x.com/annaluciacodes"
   },
   "daniel_calderon_arenas": {
     "name": "Daniel Calderon Arenas",
     "collections": [
-      "marfa_yucca"
-    ]
+      "marfa_yucca",
+      "genesis"
+    ],
+    "x": "https://x.com/DaCaldera",
+    "website": "https://danielcalderonarenas.com/"
   },
   "amy_goodchild": {
     "name": "Amy Goodchild",
     "collections": [
-      "meaningless"
-    ]
+      "meaningless",
+      "the_light_where_we_meet"
+    ],
+    "website": "https://www.amygoodchild.com/",
+    "bluesky": "https://bsky.app/profile/amygoodchild.bsky.social",
+    "x": "https://x.com/amygoodchild"
   },
   "emi_kusano": {
     "name": "Emi Kusano",
     "collections": [
       "melancholic_magical_maiden"
-    ]
+    ],
+    "website": "https://www.emikusano.art/",
+    "x": "https://x.com/emikusano"
   },
   "yungwknd": {
     "name": "yungwknd",
     "collections": [
       "melt_into_you"
-    ]
-  },
-  "fabianospeziari_x_donnoh": {
-    "name": "fabianospeziari x donnoh",
-    "collections": [
-      "mental_pathways"
-    ]
+    ],
+    "x": "https://x.com/yungwknd"
   },
   "jinyao_lin": {
     "name": "Jinyao Lin",
     "collections": [
       "metaphysics"
-    ]
-  },
-  "third_vision": {
-    "name": "Third Vision",
-    "collections": [
-      "miragem"
-    ]
+    ],
+    "website": "https://jinyaolin.info/",
+    "x": "https://x.com/jinyaolin"
   },
   "neel_shivdasani": {
     "name": "Neel Shivdasani",
     "collections": [
       "motion_pictures"
-    ]
+    ],
+    "website": "https://neel.sh/",
+    "x": "https://x.com/dataneel",
+    "bluesky": "https://bsky.app/profile/neel.sh"
   },
   "olga_fradina": {
     "name": "Olga Fradina",
     "collections": [
       "naive"
-    ]
-  },
-  "ilithya_x_erin_wajufos": {
-    "name": "ilithya x Erin Wajufos",
-    "collections": [
-      "net_net_net"
-    ]
+    ],
+    "x": "https://x.com/Olga_f2727"
   },
   "artplusbrad": {
-    "name": "artplusbrad",
+    "name": "Brad Damico",
     "collections": [
       "ode_to_roy",
       "ode_to_untitled"
-    ]
-  },
-  "rizzle_sebi_miguelgarest": {
-    "name": "Rizzle, Sebi, Miguelgarest",
-    "collections": [
-      "onchainchain"
-    ]
-  },
-  "aaron_penne_x_boreta": {
-    "name": "Aaron Penne x Boreta",
-    "collections": [
-      "passages"
-    ]
+    ],
+    "x": "https://x.com/artplusbrad"
   },
   "jake_rockland": {
     "name": "Jake Rockland",
@@ -1684,411 +1648,736 @@
       "sonoran_roadways",
       "speckled_summits",
       "stipple_sunsets"
-    ]
+    ],
+    "x": "https://x.com/purphat"
   },
   "vamoss": {
     "name": "Vamoss",
     "collections": [
       "patterns_of_life"
-    ]
-  },
-  "punch_card_collective": {
-    "name": "Punch Card Collective",
-    "collections": [
-      "perpetua"
-    ]
-  },
-  "omri_tintpulver": {
-    "name": "Omri Tintpulver",
-    "collections": [
-      "pigs_tail"
-    ]
-  },
-  "kai": {
-    "name": "kai",
-    "collections": [
-      "pixel_glass"
-    ]
-  },
-  "basement_x_ryleyo": {
-    "name": "BASEMENT x Ryley-O",
-    "collections": [
-      "pool_party"
-    ]
+    ],
+    "x": "https://x.com/vamoss"
   },
   "remnynt": {
     "name": "remnynt",
     "collections": [
       "proscenium"
-    ]
-  },
-  "insight": {
-    "name": "Insigħt",
-    "collections": [
-      "quantum_collapses"
-    ]
+    ],
+    "website": "https://vibes.art/",
+    "x": "https://x.com/remnynt"
   },
   "ikiddo": {
     "name": "Ikiddo",
     "collections": [
       "quantumcirclet",
       "uniqueness"
-    ]
-  },
-  "tara_donovan": {
-    "name": "Tara Donovan",
-    "collections": [
-      "qwerty"
-    ]
+    ],
+    "x": "https://x.com/__Ikiddo__"
   },
   "yon": {
     "name": "YON",
     "collections": [
       "rainbows"
-    ]
+    ],
+    "website": "https://www.yonfrula.com/",
+    "x": "https://x.com/yonfrula"
   },
   "thomas_lin_pedersen": {
     "name": "Thomas Lin Pedersen",
     "collections": [
       "rapture",
       "screens"
-    ]
-  },
-  "julian_hespenheide_the_generative_art_museum": {
-    "name": "Julian Hespenheide × The Generative Art Museum",
-    "collections": [
-      "ratio"
-    ]
+    ],
+    "x": "https://x.com/thomasp85",
+    "bluesky": "https://bsky.app/profile/thomasp85.com",
+    "website": "https://thomaslinpedersen.art/"
   },
   "ben_kanizay": {
     "name": "Ben Kanizay",
     "collections": [
       "retrometrix"
-    ]
+    ],
+    "website": "https://benkanizay.art/",
+    "x": "https://x.com/BKanizay",
+    "bluesky": "https://bsky.app/profile/benkanizay.bsky.social"
   },
   "nadieh_bremer": {
     "name": "Nadieh Bremer",
     "collections": [
       "rotae"
-    ]
+    ],
+    "website": "https://www.visualcinnamon.com/",
+    "bluesky": "https://bsky.app/profile/nadiehbremer.com",
+    "x": "https://x.com/NadiehBremer"
   },
   "mario_carrillo": {
     "name": "Mario Carrillo",
     "collections": [
       "rubicon"
-    ]
+    ],
+    "website": "https://marioecg.com/",
+    "x": "https://x.com/marioecg",
+    "bluesky": "https://bsky.app/profile/marioecg.bsky.social"
   },
   "william_tan": {
     "name": "William Tan",
     "collections": [
       "scribbled_boundaries"
-    ]
+    ],
+    "x": "https://x.com/weileeyum"
   },
   "minimizer": {
     "name": "minimizer",
     "collections": [
       "scribbled_daydreams"
-    ]
-  },
-  "orpheusk": {
-    "name": "Orpheusk",
-    "collections": [
-      "scribblines"
-    ]
+    ],
+    "website": "https://minimizer.art/",
+    "x": "https://x.com/minimizer_art",
+    "bluesky": "https://bsky.app/profile/minimizer.bsky.social"
   },
   "ralgo": {
     "name": "Ralgo",
     "collections": [
       "seasky"
-    ]
+    ],
+    "website": "https://ralgo.art/",
+    "x": "https://x.com/ArtRalgo"
   },
   "r4v3n": {
     "name": "r4v3n",
     "collections": [
       "shields"
-    ]
-  },
-  "espina": {
-    "name": "espina",
-    "collections": [
-      "sigils",
-      "warp_2"
-    ]
+    ],
+    "website": "https://r4v3n.art/",
+    "x": "https://x.com/r4v3n_art"
   },
   "itsgalo": {
     "name": "itsgalo",
     "collections": [
-      "skeuomorphs"
-    ]
-  },
-  "mark_cotton": {
-    "name": "Mark Cotton",
-    "collections": [
-      "space_birds"
-    ]
-  },
-  "whalestreet_x_pxlq": {
-    "name": "WhaleStreet x pxlq",
-    "collections": [
-      "space_debris_maider"
-    ]
+      "skeuomorphs",
+      "lightweight_reconstruction"
+    ],
+    "website": "https://www.galocanizares.com/",
+    "x": "https://x.com/galoandstuff",
+    "bluesky": "https://bsky.app/profile/itsgalo.bsky.social"
   },
   "alexander_reben": {
     "name": "Alexander Reben",
     "collections": [
       "spiroflakes"
-    ]
-  },
-  "philip_bell": {
-    "name": "Philip Bell",
-    "collections": [
-      "staccato"
-    ]
+    ],
+    "website": "https://areben.com/",
+    "x": "https://x.com/artboffin"
   },
   "ruben_alexander": {
     "name": "Ruben Alexander",
     "collections": [
       "star_flower"
-    ]
+    ],
+    "website": "https://linktr.ee/rubenalexander",
+    "x": "https://x.com/RubenAlexand3r"
   },
   "alida_sun": {
     "name": "Alida Sun",
     "collections": [
       "stellaraum"
-    ]
-  },
-  "nathaniel_stern_and_sasha_stiles": {
-    "name": "Nathaniel Stern and Sasha Stiles",
-    "collections": [
-      "still_moving"
-    ]
+    ],
+    "x": "https://x.com/alidasun"
   },
   "julien_gachadoat": {
     "name": "Julien Gachadoat",
     "collections": [
       "structures"
-    ]
+    ],
+    "website": "https://www.v3ga.net/",
+    "x": "https://x.com/v3ga",
+    "bluesky": "https://bsky.app/profile/julienv3ga.bsky.social"
   },
   "petitsapin": {
     "name": "petitsapin",
     "collections": [
       "such_a_lovely_time"
-    ]
+    ],
+    "x": "https://x.com/unpetitsapin"
   },
   "pzs": {
     "name": "PZS",
     "collections": [
       "summoning_ritual"
-    ]
-  },
-  "chaosconstruct": {
-    "name": "Chaosconstruct",
-    "collections": [
-      "synapses"
-    ]
-  },
-  "claudia_hart_and_andrew_blanton": {
-    "name": "Claudia Hart and Andrew Blanton",
-    "collections": [
-      "systems_madness"
-    ]
+    ],
+    "website": "https://pzs.me/"
   },
   "carlos_marcial": {
     "name": "Carlos Marcial",
     "collections": [
       "the_collectors_room"
-    ]
-  },
-  "camille_roux_x_matthieu_segret": {
-    "name": "Camille Roux x Matthieu Segret",
-    "collections": [
-      "the_destination"
-    ]
+    ],
+    "website": "https://www.carlosmarcial.com/",
+    "x": "https://x.com/carlosmarcialt"
   },
   "fesq": {
     "name": "FESQ",
     "collections": [
       "the_distance_in_between"
-    ]
+    ],
+    "website": "https://www.iamfesq.com/",
+    "x": "https://x.com/iamfesq",
+    "bluesky": "https://bsky.app/profile/fesq.bsky.social"
   },
   "per_kristian_stoveland": {
     "name": "Per Kristian Stoveland",
     "collections": [
       "the_harvest"
-    ]
-  },
-  "amy_goodchild_x_the_generative_art_museum": {
-    "name": "Amy Goodchild x The Generative Art Museum",
-    "collections": [
-      "the_light_where_we_meet"
-    ]
+    ],
+    "website": "https://perkwerk.art/",
+    "x": "https://x.com/perkwerk_",
+    "bluesky": "https://bsky.app/profile/perkwerk.art"
   },
   "sputniko": {
     "name": "Sputniko!",
     "collections": [
       "the_nursery"
-    ]
+    ],
+    "website": "https://sputniko.com/",
+    "x": "https://x.com/5putniko"
   },
   "cole_sternberg": {
     "name": "Cole Sternberg",
     "collections": [
       "the_spring_begins_with_the_first_rainstorm"
-    ]
-  },
-  "vera_molnar_in_collaboration_with_martin_grasser": {
-    "name": "Vera Molnár, in collaboration with Martin Grasser",
-    "collections": [
-      "themes_and_variations"
-    ]
+    ],
+    "website": "https://www.colesternberg.com/",
+    "x": "https://x.com/colesternberg"
   },
   "willard": {
     "name": "WILLARD",
     "collections": [
       "theoretical_townships"
-    ]
+    ],
+    "x": "https://x.com/ordinarywillard"
   },
   "eric_davidson": {
     "name": "Eric Davidson",
     "collections": [
       "thoughts_of_meadow"
-    ]
-  },
-  "abieyuwa_and_sabha": {
-    "name": "Abieyuwa and Sabha",
-    "collections": [
-      "through_my_windshield"
-    ]
+    ],
+    "x": "https://x.com/TheBuffED"
   },
   "reva": {
     "name": "Reva",
     "collections": [
       "through_the_window"
-    ]
-  },
-  "lovid": {
-    "name": "LoVid",
-    "collections": [
-      "tide_predictor"
-    ]
-  },
-  "steen_x_neo": {
-    "name": "steen x n-e-o",
-    "collections": [
-      "time_squared"
-    ]
+    ],
+    "website": "https://www.revafyw.com/",
+    "x": "https://x.com/Reva_fyw"
   },
   "jeres": {
     "name": "Jeres",
     "collections": [
       "torrent"
-    ]
+    ],
+    "website": "https://jeres.xyz/",
+    "x": "https://x.com/heyjeres"
   },
   "jack_butcher": {
     "name": "Jack Butcher",
     "collections": [
       "trademark"
-    ]
-  },
-  "hal09999_x_the_generative_art_museum": {
-    "name": "HAL09999 x The Generative Art Museum",
-    "collections": [
-      "transformations_du_champ"
-    ]
+    ],
+    "website": "https://www.jack.art/",
+    "x": "https://x.com/jackbutcher"
   },
   "xsaha": {
-    "name": " XSaha",
+    "name": "XSaha",
     "collections": [
       "turner_in_the_light"
-    ]
-  },
-  "ge1doot": {
-    "name": "ge1doot",
-    "collections": [
-      "utopia"
-    ]
+    ],
+    "x": "https://x.com/_XSaha"
   },
   "darien_brito": {
     "name": "Darien Brito",
     "collections": [
       "vahria"
-    ]
+    ],
+    "website": "https://darienbrito.com/",
+    "x": "https://x.com/DarienBrito",
+    "bluesky": "https://bsky.app/profile/darienbrito.bsky.social"
   },
   "tengil": {
     "name": "Tengil",
     "collections": [
       "vaxt"
-    ]
-  },
-  "bustavo_x_the_generative_art_museum": {
-    "name": "bustavo x The Generative Art Museum",
-    "collections": [
-      "vivoteca"
-    ]
+    ],
+    "x": "https://x.com/tengil_art"
   },
   "disruptedstar": {
     "name": "DisruptedStar",
     "collections": [
       "voyager"
-    ]
-  },
-  "volekr": {
-    "name": "Volekr",
-    "collections": [
-      "whispers_of_motion_fiat_pass"
-    ]
-  },
-  "frederik_vanhoutte_x_the_generative_art_museum": {
-    "name": "Frederik Vanhoutte x The Generative Art Museum",
-    "collections": [
-      "winterkammer"
-    ]
+    ],
+    "website": "https://sites.google.com/view/tidally-disrupted-star/",
+    "x": "https://x.com/DisruptedStar"
   },
   "kenny_vaden": {
     "name": "Kenny Vaden",
     "collections": [
       "worlds"
-    ]
+    ],
+    "website": "https://vadenart.com/",
+    "bluesky": "https://bsky.app/profile/kennyvaden.bsky.social",
+    "x": "https://x.com/KennyVaden"
   },
   "truedrew": {
     "name": "Truedrew",
     "collections": [
       "you_are_here_part_1"
-    ]
-  },
-  "andrew_mitchell": {
-    "name": "Andrew Mitchell",
-    "collections": [
-      "memory_loss"
-    ]
+    ],
+    "website": "https://truedrew.art/",
+    "x": "https://x.com/truedrew"
   },
   "baret_lavida": {
     "name": "Baret LaVida",
     "collections": [
       "primavera"
-    ]
+    ],
+    "website": "https://www.artbaret.com/",
+    "x": "https://x.com/BaretLaVida"
   },
   "juan_pedro_vallejo": {
     "name": "Juan Pedro Vallejo",
     "collections": [
       "subtraction_reconfiguration"
-    ]
-  },
-  "jonny_baho": {
-    "name": "Jonny Baho",
-    "collections": [
-      "talim"
-    ]
+    ],
+    "website": "https://vallejo.com.ar",
+    "x": "https://x.com/juanpvallejo_"
   },
   "emily_edelman": {
     "name": "Emily Edelman",
     "collections": [
-      "twos"
-    ]
+      "twos",
+      "asemica"
+    ],
+    "website": "https://www.emilyedelman.com/",
+    "x": "https://x.com/emailyedelman"
   },
-  "obvious": {
-    "name": "Obvious",
+  "wouter_kalis": {
+    "name": "Wouter Kalis",
+    "collections": [
+      "imperfections"
+    ],
+    "website": "https://wouterkalis.com/"
+  },
+  "rosco_kalis": {
+    "name": "Rosco Kalis",
+    "collections": [
+      "imperfections"
+    ],
+    "website": "https://kalis.me/",
+    "x": "https://x.com/RoscoKalis"
+  },
+  "boreta": {
+    "name": "Boreta",
+    "collections": [
+      "passages"
+    ],
+    "website": "https://boreta.net/",
+    "x": "https://x.com/boreta"
+  },
+  "abieyuwa": {
+    "name": "Abieyuwa",
+    "collections": [
+      "through_my_windshield"
+    ],
+    "website": "https://msha.ke/abieyuwa/",
+    "x": "https://x.com/abieyuwaart"
+  },
+  "matthieu_segret": {
+    "name": "Matthieu Segret",
+    "collections": [
+      "the_destination"
+    ],
+    "website": "https://immutablecollective.art/matthieu-segret/",
+    "x": "https://x.com/MatthieuArt",
+    "bluesky": "https://bsky.app/profile/matthieusegret.bsky.social"
+  },
+  "claudia_hart": {
+    "name": "Claudia Hart",
+    "collections": [
+      "systems_madness"
+    ],
+    "website": "https://claudiahart.com/",
+    "x": "https://x.com/YesClaudiaHart"
+  },
+  "andrew_blanton": {
+    "name": "Andrew Blanton",
+    "collections": [
+      "systems_madness"
+    ],
+    "website": "https://www.andrewblanton.com/"
+  },
+  "abhishek_das": {
+    "name": "Abhishek Das",
+    "collections": [
+      "aragnation"
+    ],
+    "website": "https://abhishekdas.com/",
+    "x": "https://x.com/abhshkdz",
+    "bluesky": "https://bsky.app/profile/abhshkdz.bsky.social"
+  },
+  "steffen_sauerteig": {
+    "name": "Steffen Sauerteig",
+    "collections": [
+      "blockbob_rorschach"
+    ],
+    "bluesky": "https://bsky.app/profile/steffen.bsky.social"
+  },
+  "dima_ofman": {
+    "name": "Dima Ofman",
+    "collections": [
+      "asemica"
+    ],
+    "x": "https://x.com/dimaofman"
+  },
+  "andrew_badr": {
+    "name": "Andrew Badr",
+    "collections": [
+      "asemica"
+    ],
+    "website": "https://www.andrewbadr.com/",
+    "bluesky": "https://bsky.app/profile/ab.bsky.social",
+    "x": "https://x.com/andrewbadr"
+  },
+  "fabiano_speziari": {
+    "name": "Fabiano Speziari",
+    "collections": [
+      "mental_pathways"
+    ],
+    "website": "https://fabianospeziari.io/",
+    "x": "https://x.com/fabianospeziari"
+  },
+  "donnoh": {
+    "name": "donnoh",
+    "collections": [
+      "mental_pathways"
+    ],
+    "website": "https://lucadonnoh.github.io/",
+    "x": "https://x.com/donnoh_eth"
+  },
+  "frederik_vanhoutte": {
+    "name": "Frederik Vanhoutte",
+    "collections": [
+      "winterkammer"
+    ],
+    "bluesky": "https://bsky.app/profile/winterbloed.be"
+  },
+  "hal09999": {
+    "name": "HAL09999",
+    "collections": [
+      "transformations_du_champ"
+    ],
+    "website": "https://danslesnuages.xyz/",
+    "x": "https://x.com/HAL09999",
+    "bluesky": "https://bsky.app/profile/hal09999.bsky.social"
+  },
+  "henrysdev": {
+    "name": "henrysdev",
+    "collections": [
+      "isodream"
+    ],
+    "website": "https://www.henrys.dev/",
+    "x": "https://x.com/henrysdev"
+  },
+  "ilithya": {
+    "name": "ilithya",
+    "collections": [
+      "net_net_net"
+    ],
+    "website": "https://www.ilithya.rocks/",
+    "x": "https://x.com/ilithya_rocks",
+    "bluesky": "https://bsky.app/profile/ilithya.bsky.social"
+  },
+  "erin_wajufos": {
+    "name": "Erin Wajufos",
+    "collections": [
+      "net_net_net"
+    ],
+    "website": "https://www.erinwajufos.digital/",
+    "x": "https://x.com/erinwajufos"
+  },
+  "salvatore_savasta": {
+    "name": "Salvatore Savasta",
+    "collections": [
+      "aleph0",
+      "quantum_collapses"
+    ],
+    "x": "https://x.com/SalvatoreSavas7"
+  },
+  "kelly_milligan": {
+    "name": "Kelly Milligan",
+    "collections": [
+      "balance_2"
+    ],
+    "website": "https://kellymilligan.art/",
+    "x": "https://x.com/kellymilligannz",
+    "bluesky": "https://bsky.app/profile/kellymilligan.bsky.social"
+  },
+  "amber_vittoria": {
+    "name": "Amber Vittoria",
+    "collections": [
+      "balance_2"
+    ],
+    "website": "https://ambervittoria.com/",
+    "x": "https://x.com/amber_vittoria"
+  },
+  "laya_mathikshara": {
+    "name": "Laya Mathikshara",
+    "collections": [
+      "cerebellum"
+    ],
+    "website": "https://layamathikshara.com/",
+    "x": "https://x.com/layamathikshara"
+  },
+  "santiago": {
+    "name": "Santiago",
+    "collections": [
+      "cerebellum"
+    ],
+    "website": "https://proper-code.com/",
+    "x": "https://x.com/glitch_life"
+  },
+  "nathaniel_stern": {
+    "name": "Nathaniel Stern",
+    "collections": [
+      "still_moving"
+    ],
+    "website": "https://nathanielstern.com/",
+    "x": "https://x.com/nathanielstern",
+    "bluesky": "https://bsky.app/profile/nathanielstern.bsky.social"
+  },
+  "sasha_stiles": {
+    "name": "Sasha Stiles",
+    "collections": [
+      "still_moving"
+    ],
+    "website": "https://www.sashastiles.com/",
+    "x": "https://x.com/sashastiles",
+    "bluesky": "https://bsky.app/profile/sashastiles.bsky.social"
+  },
+  "hugo_caselles_dupre": {
+    "name": "Hugo Caselles-Dupré",
     "collections": [
       "whispering_sands"
-    ]
+    ],
+    "website": "https://sites.google.com/view/hugo-caselles-dupre/accueil",
+    "x": "https://x.com/casellesdupre"
+  },
+  "rizzle": {
+    "name": "Rizzle",
+    "collections": [
+      "onchainchain"
+    ],
+    "x": "https://x.com/NFTland",
+    "website": "https://rizzle.io/"
+  },
+  "miguelgarest": {
+    "name": "Miguelgarest",
+    "collections": [
+      "onchainchain"
+    ],
+    "website": "https://miguelgarest.com/",
+    "x": "https://x.com/miguelgarest"
+  },
+  "ryley_o": {
+    "name": "ryley-o.eth",
+    "collections": [
+      "flows",
+      "degenerative",
+      "pool_party"
+    ],
+    "x": "https://x.com/RyleyOh",
+    "website": "https://ryley.studio/"
+  },
+  "srdan_sarovic": {
+    "name": "Srđan Šarović",
+    "collections": [
+      "logoria"
+    ],
+    "website": "https://zitch.works/page87365606.html",
+    "x": "https://x.com/__S_e_r_g_e__"
+  },
+  "una_popovic": {
+    "name": "Una Popović",
+    "collections": [
+      "logoria"
+    ],
+    "website": "https://zitch.works/popovic",
+    "x": "https://x.com/UnaPopovic157"
+  },
+  "vera_molnar": {
+    "name": "Vera Molnár",
+    "collections": [
+      "themes_and_variations"
+    ],
+    "website": "http://www.veramolnar.com/"
+  },
+  "bustavo": {
+    "name": "bustavo",
+    "collections": [
+      "vivoteca"
+    ],
+    "website": "https://bustavo.com/",
+    "x": "https://x.com/bustavo",
+    "bluesky": "https://bsky.app/profile/bustavo.com"
+  },
+  "alex_supkay": {
+    "name": "Alex Supkay",
+    "collections": [
+      "enchiridion"
+    ],
+    "website": "https://alexsupkay.com/",
+    "x": "https://x.com/asupkay"
+  },
+  "ed_fornieles": {
+    "name": "Ed Fornieles",
+    "collections": [
+      "finiliar"
+    ],
+    "x": "https://x.com/EddFornieles"
+  },
+  "sonora_sprite": {
+    "name": "Sonora Sprite",
+    "collections": [
+      "bonkler"
+    ],
+    "x": "https://x.com/Milady_Sonoro"
+  },
+  "gremplin": {
+    "name": "Gremplin",
+    "collections": [
+      "nouns"
+    ],
+    "x": "https://x.com/gremplin"
+  },
+  "timpers": {
+    "name": "Timpers",
+    "collections": [
+      "nouns"
+    ],
+    "x": "https://x.com/timpershd",
+    "bluesky": "https://bsky.app/profile/timpershd.bsky.social"
+  },
+  "punk4156": {
+    "name": "4156",
+    "collections": [
+      "nouns"
+    ],
+    "x": "https://x.com/punk4156"
+  },
+  "wretched_wurm": {
+    "name": "wretched worm",
+    "collections": [
+      "gushies"
+    ],
+    "x": "https://x.com/wretched_worm"
+  },
+  "nick44": {
+    "name": "Nick44",
+    "collections": [
+      "sproto_gremlins"
+    ],
+    "x": "https://x.com/iamnick44"
+  },
+  "juicyunlimited": {
+    "name": "juicyunlimited",
+    "collections": [
+      "sproto_gremlins"
+    ],
+    "x": "https://x.com/juicyunlimited"
+  },
+  "simon_raion_lavi": {
+    "name": "Simon Raion Lavi",
+    "collections": [
+      "changing_places"
+    ],
+    "website": "https://simonlavi.xyz/",
+    "x": "https://x.com/SimonRaion"
+  },
+  "fatemeh_alipour": {
+    "name": "Fatemeh Alipour",
+    "collections": [
+      "matchstick"
+    ],
+    "x": "https://x.com/fatemeh172561"
+  },
+  "nicolas_daniel": {
+    "name": "Nicolas Daniel",
+    "collections": [
+      "algorhythms"
+    ],
+    "website": "https://nicolasdaniel.com/",
+    "x": "https://x.com/nicolasdnl",
+    "bluesky": "https://bsky.app/profile/nicolasdaniel.com"
+  },
+  "han_saglam": {
+    "name": "Han Saglam",
+    "collections": [
+      "algorhythms"
+    ],
+    "website": "https://han.io/",
+    "x": "https://x.com/hanrgb"
+  },
+  "tim_richardson": {
+    "name": "Tim Richardson",
+    "collections": [
+      "contrast_agent"
+    ],
+    "website": "https://timrichardson.tv/"
+  },
+  "sean_zellmer": {
+    "name": "Sean Zellmer",
+    "collections": [
+      "contrast_agent"
+    ],
+    "website": "https://lejeunerenard.com/",
+    "x": "https://x.com/lejeunerenard"
+  },
+  "okazz": {
+    "name": "Okazz",
+    "collections": [
+      "square_symphony"
+    ],
+    "website": "https://linktr.ee/okazz",
+    "x": "https://x.com/okazz_"
+  },
+  "joshua_schachter": {
+    "name": "Joshua Schachter",
+    "collections": [
+      "diatom"
+    ],
+    "website": "http://joshua.schachter.org/",
+    "x": "https://x.com/joshu",
+    "bluesky": "https://bsky.app/profile/joshu.bsky.social"
+  },
+  "k2xl": {
+    "name": "K2xL",
+    "collections": [
+      "assemblage"
+    ],
+    "website": "https://k2xl.com/",
+    "x": "https://x.com/k2xl"
+  },
+  "guppy": {
+    "name": "guppy",
+    "collections": [
+      "planet_peppa"
+    ],
+    "x": "https://x.com/ihateguppy"
+  },
+  "one_two_sl333p": {
+    "name": "hungry bug",
+    "collections": [
+      "planet_peppa"
+    ],
+    "x": "https://x.com/1_2_sl333p"
   }
 }
