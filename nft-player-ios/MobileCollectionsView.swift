@@ -57,6 +57,10 @@ struct MobileCollectionsView: View {
             MobileCollectionsNavigationView(
                 rootView: collectionsRootView,
                 playerConfig: sessionCoordinator.playerConfig,
+                openingDestination: sessionCoordinator.openingDestination,
+                collectionPreparation: sessionCoordinator.collectionPreparation,
+                onDismissOpeningDestination:
+                    sessionCoordinator.dismissOpeningDestination,
                 presentationTransition:
                     sessionCoordinator.playerPresentationTransition,
                 onWillDismissPlayer:
@@ -75,10 +79,6 @@ struct MobileCollectionsView: View {
         }
         .ignoresSafeArea()
         .persistentSystemOverlays(.hidden)
-        .collectionPreparation(
-            sessionCoordinator.collectionPreparation,
-            onCancel: sessionCoordinator.cancel
-        )
         .preloadCollectionCovers()
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             sessionCoordinator.applicationDidBecomeActive()
@@ -137,6 +137,7 @@ struct MobileCollectionsView: View {
                             query: $collectionSearchQuery,
                             isFocusSuspended:
                                 sessionCoordinator.playerConfig != nil
+                                    || sessionCoordinator.openingDestination != nil
                         )
                     }
                     ToolbarItem(placement: .navigationBarTrailing) {

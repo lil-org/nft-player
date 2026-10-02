@@ -116,6 +116,7 @@ final class MobileCollectionsSessionCoordinator {
 
     let collectionPreparation = CollectionPreparationState()
 
+    private(set) var openingDestination: CollectionOpeningDestination?
     private(set) var playerConfig: MobilePlayerConfig?
     private(set) var playerPresentationTransition:
         PlayerPresentationTransition = .animated
@@ -170,10 +171,8 @@ final class MobileCollectionsSessionCoordinator {
     }
 
     var isReadyToRevealNavigation: Bool {
-        (hasLoadedViewingProgress || playerConfig != nil)
-            && (!isPreparingWidgetPlayerPresentation
-                || collectionPreparation.isLoading
-                || collectionPreparation.errorMessage != nil)
+        openingDestination != nil || (hasLoadedViewingProgress || playerConfig != nil)
+            && !isPreparingWidgetPlayerPresentation
     }
 
     func update(
@@ -193,6 +192,7 @@ final class MobileCollectionsSessionCoordinator {
                 pendingWidgetHandoffRequest
             collectionPreparation.cancel()
             playerPresentationGate.cancel()
+            openingDestination = nil
             finishPendingWidgetHandoff(pendingWidgetHandoffRequest)
         }
         if changesWidgetState {
@@ -216,9 +216,19 @@ final class MobileCollectionsSessionCoordinator {
     @discardableResult
     func requestCollectionOpen(
         collectionId: String,
-        transition: PlayerPresentationTransition = .animated
+        transition: PlayerPresentationTransition = .animated,
+        initialTokenIndex: Int? = nil
     ) -> Task<Bool, Never> {
+        guard visibleCollectionIds.contains(collectionId),
+              dependencies.canOpenCollection(collectionId) else {
+            return Task { false }
+        }
         cancel()
+        stageOpeningDestination(
+            collectionId: collectionId,
+            transition: transition,
+            initialTokenIndex: initialTokenIndex
+        )
         let request = playerPresentationGate.begin()
         return Task { @MainActor in
             return await self.openCollection(
@@ -233,7 +243,10 @@ final class MobileCollectionsSessionCoordinator {
     func requestResumeViewing(
         _ progress: MobileViewingProgress
     ) -> Task<Bool, Never> {
-        requestCollectionOpen(collectionId: progress.collectionId)
+        requestCollectionOpen(
+            collectionId: progress.collectionId,
+            initialTokenIndex: progress.tokenIndex
+        )
     }
 
     @discardableResult
@@ -246,6 +259,11 @@ final class MobileCollectionsSessionCoordinator {
         }
 
         collectionPreparation.cancel()
+        stageOpeningDestination(
+            collectionId: collectionId,
+            transition: .instant,
+            opensToken: tokenId != nil
+        )
         let request = playerPresentationGate.begin()
         widgetPlayerHandoff = nil
         let handoffRequest = widgetLaunchPresentationState
@@ -322,11 +340,14 @@ final class MobileCollectionsSessionCoordinator {
         playerPresentationGate.resolutionForPendingRequest { [weak self] in
             guard let self else { return }
             collectionPreparation.cancel()
+            openingDestination = nil
             finishPendingWidgetHandoff(pendingWidgetHandoffRequest)
         }
     }
 
     func didPresentPlayer(_ config: MobilePlayerConfig) {
+        guard playerConfig?.id == config.id else { return }
+        openingDestination = nil
         guard let widgetPlayerHandoff,
               widgetPlayerHandoff.playerConfigID == config.id else {
             return
@@ -339,6 +360,7 @@ final class MobileCollectionsSessionCoordinator {
 
     func dismissPlayer(_ config: MobilePlayerConfig) {
         guard playerConfig?.id == config.id else { return }
+        openingDestination = nil
         playerPresentationTransition = .animated
         withAnimation(playerCrossfadeAnimation) {
             playerConfig = nil
@@ -346,12 +368,35 @@ final class MobileCollectionsSessionCoordinator {
         requestViewingProgressRefresh(resetScroll: true)
     }
 
+    func dismissOpeningDestination(_ destination: CollectionOpeningDestination) {
+        guard openingDestination?.id == destination.id else { return }
+        playerConfig = nil
+        cancel()
+    }
+
     func cancel() {
+        openingDestination = nil
         collectionPreparation.cancel()
         playerPresentationGate.cancel()
         pendingWidgetHandoffRequest = nil
         widgetPlayerHandoff = nil
         widgetLaunchPresentationState.cancelAllWidgetPlayerHandoffs()
+    }
+
+    private func stageOpeningDestination(
+        collectionId: String,
+        transition: PlayerPresentationTransition,
+        opensToken: Bool = false,
+        initialTokenIndex: Int? = nil
+    ) {
+        playerPresentationTransition = transition
+        playerConfig = nil
+        openingDestination = CollectionOpeningDestination(
+            collectionId: collectionId,
+            opensToken: opensToken,
+            initialTokenIndex: initialTokenIndex
+                ?? viewingProgressSnapshot.progress(collectionId: collectionId)?.tokenIndex
+        )
     }
 
     private func requestViewingProgressRefresh(

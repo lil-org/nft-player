@@ -22,9 +22,11 @@ final class Navigator: NSObject, NSWindowDelegate {
         ensureFrontAfterOpening: Bool = false,
         transition: MacRouteTransition = .slide
     ) {
+        guard CollectionCatalog.allItems.contains(where: { $0.id == collectionId }) else { return }
         MacNavigationModel.shared.collectionPreparation.cancel()
         showMainWindow()
         let request = playerPresentationGate.begin()
+        presentOpening(collectionId: collectionId, transition: transition)
         Task {
             await showPlayerUsingProgress(
                 collectionId: collectionId,
@@ -42,15 +44,23 @@ final class Navigator: NSObject, NSWindowDelegate {
         ensureFrontAfterOpening: Bool = false,
         transition: MacRouteTransition = .slide
     ) {
+        guard CollectionCatalog.allItems.contains(where: { $0.id == collectionId }) else { return }
         MacNavigationModel.shared.collectionPreparation.cancel()
         showMainWindow()
         let request = playerPresentationGate.begin()
+        presentOpening(collectionId: collectionId, transition: transition)
         Task {
             guard let snapshot = await playerPresentationSnapshot(for: request),
                   playerPresentationGate.isPending(request), !Task.isCancelled else {
                 return
             }
             let progress = snapshot.progress(collectionId: collectionId)
+            if let progress {
+                MacNavigationModel.shared.updateOpeningInitialTokenIndex(
+                    progress.tokenIndex,
+                    collectionId: collectionId
+                )
+            }
             await showPlayer(
                 collectionId: collectionId,
                 initialTokenId: progress?.tokenId ?? initialTokenId,
@@ -81,6 +91,11 @@ final class Navigator: NSObject, NSWindowDelegate {
             }
 
             let progress = snapshot.progress(collectionId: item.id)
+            presentOpening(
+                collectionId: item.id,
+                initialTokenIndex: progress?.isComplete == false ? progress?.tokenIndex : nil,
+                transition: .slide
+            )
             await showPlayer(
                 collectionId: item.id,
                 initialTokenId: progress?.isComplete == false ? progress?.tokenId : nil,
@@ -95,6 +110,22 @@ final class Navigator: NSObject, NSWindowDelegate {
     func cancelPendingPlayerPresentation() {
         MacNavigationModel.shared.collectionPreparation.cancel()
         playerPresentationGate.cancel()
+    }
+
+    private func presentOpening(
+        collectionId: String,
+        opensToken: Bool = false,
+        initialTokenIndex: Int? = nil,
+        transition: MacRouteTransition
+    ) {
+        MacNavigationModel.shared.presentOpening(
+            CollectionOpeningDestination(
+                collectionId: collectionId,
+                opensToken: opensToken,
+                initialTokenIndex: initialTokenIndex
+            ),
+            transition: transition
+        )
     }
 
     private func playerPresentationSnapshot(
@@ -129,6 +160,10 @@ final class Navigator: NSObject, NSWindowDelegate {
         }
 
         if let progress = snapshot.progress(collectionId: collectionId) {
+            MacNavigationModel.shared.updateOpeningInitialTokenIndex(
+                progress.tokenIndex,
+                collectionId: collectionId
+            )
             await showPlayer(
                 collectionId: progress.collectionId,
                 initialTokenId: progress.tokenId,
@@ -157,9 +192,18 @@ final class Navigator: NSObject, NSWindowDelegate {
         ensureFrontAfterOpening: Bool = false,
         completion: @escaping @MainActor () -> Void
     ) {
+        guard CollectionCatalog.allItems.contains(where: { $0.id == collectionId }) else {
+            completion()
+            return
+        }
         MacNavigationModel.shared.collectionPreparation.cancel()
         showMainWindow()
         let request = playerPresentationGate.begin()
+        presentOpening(
+            collectionId: collectionId,
+            opensToken: tokenId != nil,
+            transition: .none
+        )
         Task {
             defer { completion() }
             await Task.yield()

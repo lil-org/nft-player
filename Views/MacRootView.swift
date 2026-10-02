@@ -29,10 +29,6 @@ struct MacRootView: View {
                 toolbarContent
             }
             .navigationTitle(model.title)
-            .collectionPreparation(
-                model.collectionPreparation,
-                onCancel: Navigator.shared.cancelPendingPlayerPresentation
-            )
     }
 
     @ToolbarContentBuilder
@@ -40,6 +36,8 @@ struct MacRootView: View {
         switch model.route {
         case .collections:
             collectionsToolbar
+        case .opening:
+            backToolbar
         case let .player(_, mode):
             playerToolbar(mode: mode)
         }
@@ -63,7 +61,7 @@ struct MacRootView: View {
     }
 
     @ToolbarContentBuilder
-    private func playerToolbar(mode: MacPlayerDisplayMode) -> some ToolbarContent {
+    private var backToolbar: some ToolbarContent {
         ToolbarItemGroup(placement: .navigation) {
             Button {
                 model.goBack()
@@ -74,7 +72,11 @@ struct MacRootView: View {
             .accessibilityLabel(Strings.back)
             .keyboardShortcut("[", modifiers: .command)
         }
+    }
 
+    @ToolbarContentBuilder
+    private func playerToolbar(mode: MacPlayerDisplayMode) -> some ToolbarContent {
+        backToolbar
         ToolbarItemGroup {
             Spacer()
             if mode == .onePerPage {

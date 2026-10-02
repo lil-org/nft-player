@@ -375,13 +375,13 @@
 		E89BD9F0ADF54F43B0509586 /* PersistentCollectionTokenCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00A7DCBA477571B21E0EB48B /* PersistentCollectionTokenCache.swift */; };
 		3870BB23B2E13CC492E30D30 /* PersistentCollectionTokenCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00A7DCBA477571B21E0EB48B /* PersistentCollectionTokenCache.swift */; };
 		DA9F9C29D98A303EE2696C5F /* CollectionPreparationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0BDB5ECB9F658120D6C4AB /* CollectionPreparationState.swift */; };
-		ED264E8B3B7273D20135826B /* CollectionPreparationModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBC0C249D50CE3E032F4DFA1 /* CollectionPreparationModifier.swift */; };
+		ED264E8B3B7273D20135826B /* CollectionOpeningView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBC0C249D50CE3E032F4DFA1 /* CollectionOpeningView.swift */; };
 		6A08345998A3018C1B2D8452 /* CollectionPreparationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0BDB5ECB9F658120D6C4AB /* CollectionPreparationState.swift */; };
-		DF8BA9B2456555C4E1E5419C /* CollectionPreparationModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBC0C249D50CE3E032F4DFA1 /* CollectionPreparationModifier.swift */; };
+		DF8BA9B2456555C4E1E5419C /* CollectionOpeningView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBC0C249D50CE3E032F4DFA1 /* CollectionOpeningView.swift */; };
 		FC5292720922119287B8A2F2 /* CollectionPreparationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0BDB5ECB9F658120D6C4AB /* CollectionPreparationState.swift */; };
-		D0D51B5FF1B8E9844A729AA7 /* CollectionPreparationModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBC0C249D50CE3E032F4DFA1 /* CollectionPreparationModifier.swift */; };
+		D0D51B5FF1B8E9844A729AA7 /* CollectionOpeningView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBC0C249D50CE3E032F4DFA1 /* CollectionOpeningView.swift */; };
 		D6C26EBD972FC4044CABF114 /* CollectionPreparationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0BDB5ECB9F658120D6C4AB /* CollectionPreparationState.swift */; };
-		98ADC025355BBB87C2D7CCFD /* CollectionPreparationModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBC0C249D50CE3E032F4DFA1 /* CollectionPreparationModifier.swift */; };
+		98ADC025355BBB87C2D7CCFD /* CollectionOpeningView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBC0C249D50CE3E032F4DFA1 /* CollectionOpeningView.swift */; };
 		A494348CC9485565D9491E26 /* CollectionTokenFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27E6F81FA8240FB31C3A698E /* CollectionTokenFixtures.swift */; };
 		9F3D8A837FE8C02ABB3FAFD1 /* CollectionManifests in Resources */ = {isa = PBXBuildFile; fileRef = AC5F68F1A38A56A4493F681A /* CollectionManifests */; };
 		B8E9C26A020E4A47AC4B7F31 /* WidgetArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8E9C26A020E4A47AC4B7F30 /* WidgetArtwork.swift */; };
@@ -405,6 +405,7 @@
 		6B384E84255D71043B4445ED /* ArtworkAssetPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19BBA55050B2EBCF492F9764 /* ArtworkAssetPolicy.swift */; };
 		7636F5CD776E4CFE9FBF601E /* CollectionPlatformAvailability.swift in Sources */ = {isa = PBXBuildFile; fileRef = C25D0FE412084923AF5C46B2 /* CollectionPlatformAvailability.swift */; };
 		803FEB89F9521A90D234CDA8 /* ArtworkAssetPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19BBA55050B2EBCF492F9764 /* ArtworkAssetPolicy.swift */; };
+		B3C7F1D4A6E84E09BC0B2001 /* CollectionOpeningDestinationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3C7F1D4A6E84E09BC0B2002 /* CollectionOpeningDestinationTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -691,7 +692,7 @@
 		6F32C1A0969AEC369910FE81 /* artists.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "artists.json"; sourceTree = "<group>"; };
 		00A7DCBA477571B21E0EB48B /* PersistentCollectionTokenCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PersistentCollectionTokenCache.swift"; sourceTree = "<group>"; };
 		DA0BDB5ECB9F658120D6C4AB /* CollectionPreparationState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CollectionPreparationState.swift"; sourceTree = "<group>"; };
-		EBC0C249D50CE3E032F4DFA1 /* CollectionPreparationModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CollectionPreparationModifier.swift"; sourceTree = "<group>"; };
+		EBC0C249D50CE3E032F4DFA1 /* CollectionOpeningView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CollectionOpeningView.swift"; sourceTree = "<group>"; };
 		27E6F81FA8240FB31C3A698E /* CollectionTokenFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CollectionTokenFixtures.swift"; sourceTree = "<group>"; };
 		AC5F68F1A38A56A4493F681A /* CollectionManifests */ = {isa = PBXFileReference; lastKnownFileType = folder; name = CollectionManifests; path = "build/test-collection-manifests/CollectionManifests"; sourceTree = "SOURCE_ROOT"; };
 		8C827FC14854E5CA5EFEE026 /* nft_player_ios_widget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "nft_player_ios_widget.entitlements"; sourceTree = "<group>"; };
@@ -699,6 +700,7 @@
 		B8E9C26A020E4A47AC4B7F30 /* WidgetArtwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetArtwork.swift; sourceTree = "<group>"; };
 		C25D0FE412084923AF5C46B2 /* CollectionPlatformAvailability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionPlatformAvailability.swift; sourceTree = "<group>"; };
 		19BBA55050B2EBCF492F9764 /* ArtworkAssetPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtworkAssetPolicy.swift; sourceTree = "<group>"; };
+		B3C7F1D4A6E84E09BC0B2002 /* CollectionOpeningDestinationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionOpeningDestinationTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1100,6 +1102,7 @@
 				2ECA00000000000000000006 /* DownloadableMediaCacheTests.swift */,
 				2E3000000000000000000009 /* MobilePlayerInteractionCoordinatorTests.swift */,
 				2DA700042FF3000000000001 /* MobileCollectionsSessionCoordinatorTests.swift */,
+				B3C7F1D4A6E84E09BC0B2002 /* CollectionOpeningDestinationTests.swift */,
 				2DB200012FF4000000000001 /* MobilePlaybackSessionTests.swift */,
 				2C317F7CCC8746C09F9D6203 /* PlayerPageMediaCoordinatorTests.swift */,
 				1017CC23649D46C4975C18F3 /* MobilePlayerBookmarkMenuActionTests.swift */,
@@ -1186,7 +1189,7 @@
 		1303522E64D34DC8831CA5E2 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				EBC0C249D50CE3E032F4DFA1 /* CollectionPreparationModifier.swift */,
+				EBC0C249D50CE3E032F4DFA1 /* CollectionOpeningView.swift */,
 				A5F362FB51EF4E58A0A1FA47 /* CollectionCoverImage.swift */,
 			);
 			path = Views;
@@ -1599,6 +1602,7 @@
 				2ECA00000000000000000030 /* DownloadableMediaCacheTests.swift in Sources */,
 				2E3000000000000000000019 /* MobilePlayerInteractionCoordinatorTests.swift in Sources */,
 				2DA700032FF3000000000001 /* MobileCollectionsSessionCoordinatorTests.swift in Sources */,
+				B3C7F1D4A6E84E09BC0B2001 /* CollectionOpeningDestinationTests.swift in Sources */,
 				2DB200022FF4000000000001 /* MobilePlaybackSessionTests.swift in Sources */,
 				0BE91AD8507C42D196AC7195 /* PlayerPageMediaCoordinatorTests.swift in Sources */,
 				B17E50F3DA0C4453AEC5E03F /* MobilePlayerBookmarkMenuActionTests.swift in Sources */,
@@ -1637,7 +1641,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				98ADC025355BBB87C2D7CCFD /* CollectionPreparationModifier.swift in Sources */,
+				98ADC025355BBB87C2D7CCFD /* CollectionOpeningView.swift in Sources */,
 				D6C26EBD972FC4044CABF114 /* CollectionPreparationState.swift in Sources */,
 				3870BB23B2E13CC492E30D30 /* PersistentCollectionTokenCache.swift in Sources */,
 				864F6A102D164653B44A2761 /* CompactTokenManifest.swift in Sources */,
@@ -1751,7 +1755,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				ED264E8B3B7273D20135826B /* CollectionPreparationModifier.swift in Sources */,
+				ED264E8B3B7273D20135826B /* CollectionOpeningView.swift in Sources */,
 				DA9F9C29D98A303EE2696C5F /* CollectionPreparationState.swift in Sources */,
 				53045DCF584119B54400EFF0 /* PersistentCollectionTokenCache.swift in Sources */,
 				9C4189B2F60E4D6985BC6D2A /* CompactTokenManifest.swift in Sources */,
@@ -1811,7 +1815,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D0D51B5FF1B8E9844A729AA7 /* CollectionPreparationModifier.swift in Sources */,
+				D0D51B5FF1B8E9844A729AA7 /* CollectionOpeningView.swift in Sources */,
 				FC5292720922119287B8A2F2 /* CollectionPreparationState.swift in Sources */,
 				9F130EE6BFB1BB214A6BA8E0 /* PersistentCollectionTokenCache.swift in Sources */,
 				8945491D56654920B143854F /* CompactTokenManifest.swift in Sources */,
@@ -1872,7 +1876,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				DF8BA9B2456555C4E1E5419C /* CollectionPreparationModifier.swift in Sources */,
+				DF8BA9B2456555C4E1E5419C /* CollectionOpeningView.swift in Sources */,
 				6A08345998A3018C1B2D8452 /* CollectionPreparationState.swift in Sources */,
 				43CCFF64D82A8E1C2EF85682 /* PersistentCollectionTokenCache.swift in Sources */,
 				9DAB3869B3FE4479A81EE374 /* CompactTokenManifest.swift in Sources */,

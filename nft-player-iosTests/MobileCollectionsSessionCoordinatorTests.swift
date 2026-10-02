@@ -1,6 +1,8 @@
 // ∅ 2026 lil org
 
 import Foundation
+import SwiftUI
+import UIKit
 import XCTest
 @testable import nft_player_ios
 
@@ -529,6 +531,7 @@ extension MobileCollectionsSessionCoordinatorTests {
 
         resolution(true)
 
+        XCTAssertNil(fixture.coordinator.openingDestination)
         XCTAssertFalse(fixture.coordinator.collectionPreparation.isLoading)
         XCTAssertFalse(fixture.widgetState.isPreparingWidgetPlayerPresentation)
         XCTAssertNil(fixture.coordinator.collectionPreparation.errorMessage)
@@ -560,8 +563,10 @@ extension MobileCollectionsSessionCoordinatorTests {
             fixture.coordinator.resolutionForPendingPresentationRequest()
         )
 
+        let destination = fixture.coordinator.openingDestination
         resolution(false)
 
+        XCTAssertEqual(fixture.coordinator.openingDestination, destination)
         XCTAssertTrue(fixture.coordinator.collectionPreparation.isLoading)
         XCTAssertTrue(fixture.widgetState.isPreparingWidgetPlayerPresentation)
         await preparations.send(())
@@ -610,7 +615,7 @@ extension MobileCollectionsSessionCoordinatorTests {
         XCTAssertFalse(fixture.widgetState.isPreparingWidgetPlayerPresentation)
     }
 
-    func testManifestPreparationKeepsCatalogVisibleUntilTokensAreReady() async throws {
+    func testManifestPreparationOpensDestinationBeforeTokensAreReady() async throws {
         let item = try firstCollectionItem()
         let preparations = CoordinatorValueQueue<Void>()
         let store = CoordinatorProgressStore()
@@ -620,8 +625,12 @@ extension MobileCollectionsSessionCoordinatorTests {
         await fixture.coordinator.refreshViewingProgress(id: 0)
 
         let task = fixture.coordinator.requestCollectionOpen(collectionId: item.id)
+        let destination = try XCTUnwrap(fixture.coordinator.openingDestination)
+        XCTAssertEqual(destination.collectionId, item.id)
+        XCTAssertTrue(fixture.coordinator.isReadyToRevealNavigation)
         await assertWaiterCount(1, in: preparations)
 
+        XCTAssertEqual(fixture.coordinator.openingDestination?.id, destination.id)
         XCTAssertTrue(fixture.coordinator.collectionPreparation.isLoading)
         XCTAssertTrue(fixture.coordinator.isReadyToRevealNavigation)
         XCTAssertNil(fixture.coordinator.playerConfig)
@@ -635,6 +644,8 @@ extension MobileCollectionsSessionCoordinatorTests {
         XCTAssertTrue(didOpen)
         XCTAssertFalse(fixture.coordinator.collectionPreparation.isLoading)
         XCTAssertEqual(fixture.coordinator.playerConfig?.initialItemId, item.id)
+        fixture.coordinator.didPresentPlayer(try XCTUnwrap(fixture.coordinator.playerConfig))
+        XCTAssertNil(fixture.coordinator.openingDestination)
     }
 
     func testManifestFailureDoesNotSaveProgressAndRetryPreservesSavedPosition() async throws {
@@ -649,8 +660,12 @@ extension MobileCollectionsSessionCoordinatorTests {
             await retryPreparation.next()
         })
 
-        let didOpen = await fixture.coordinator.requestResumeViewing(progress).value
+        let openTask = fixture.coordinator.requestResumeViewing(progress)
+        let destination = try XCTUnwrap(fixture.coordinator.openingDestination)
+        XCTAssertEqual(destination.initialTokenIndex, progress.tokenIndex)
+        let didOpen = await openTask.value
         XCTAssertFalse(didOpen)
+        XCTAssertEqual(fixture.coordinator.openingDestination?.id, destination.id)
         XCTAssertNotNil(fixture.coordinator.collectionPreparation.errorMessage)
         XCTAssertNil(fixture.coordinator.playerConfig)
         let failedMetrics = await store.metrics()
@@ -659,6 +674,7 @@ extension MobileCollectionsSessionCoordinatorTests {
 
         fixture.coordinator.collectionPreparation.retry()
         await assertWaiterCount(1, in: retryPreparation)
+        XCTAssertEqual(fixture.coordinator.openingDestination?.id, destination.id)
         XCTAssertNil(fixture.coordinator.collectionPreparation.errorMessage)
         await retryPreparation.send(())
         await assertPlayerPresented(fixture.coordinator)
@@ -768,6 +784,314 @@ extension MobileCollectionsSessionCoordinatorTests {
         XCTAssertTrue(fixture.recorder.widgetRequests.isEmpty)
     }
 
+    func testNavigationPushesLoadingDestinationAndBackCancelsPreparation() async throws {
+        let item = try firstCollectionItem()
+        let preparations = CoordinatorValueQueue<Void>()
+        let fixture = try makeFixture(store: CoordinatorProgressStore(), prepareCollection: { _ in
+            await preparations.next()
+        })
+        let task = fixture.coordinator.requestCollectionOpen(collectionId: item.id, transition: .instant)
+        let destination = try XCTUnwrap(fixture.coordinator.openingDestination)
+        let root = UIHostingController(rootView: Color.black)
+        let navigation = PlayerNavigationController(rootViewController: root)
+        let navigationCoordinator = MobileCollectionsNavigationView<Color>.Coordinator()
+        navigationCoordinator.attach(navigationController: navigation, rootViewController: root)
+        let didShowOpening = expectation(description: "Loading destination finished appearing")
+        let navigationObserver = CoordinatorNavigationObserver(
+            forwardingTo: navigationCoordinator,
+            didShowOpening: didShowOpening
+        )
+        navigation.delegate = navigationObserver
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive })
+        let window = UIWindow(windowScene: scene)
+        window.rootViewController = navigation
+        window.isHidden = false
+        window.layoutIfNeeded()
+        defer {
+            withExtendedLifetime(navigationObserver) {
+                navigationCoordinator.invalidate()
+                window.isHidden = true
+            }
+        }
+        navigationCoordinator.update(
+            playerConfig: fixture.coordinator.playerConfig,
+            openingDestination: destination,
+            collectionPreparation: fixture.coordinator.collectionPreparation,
+            onDismissOpeningDestination: fixture.coordinator.dismissOpeningDestination,
+            presentationTransition: .instant,
+            onWillDismissPlayer: fixture.coordinator.resolutionForPendingPresentationRequest,
+            onDidPresentPlayer: fixture.coordinator.didPresentPlayer,
+            onDismissPlayer: fixture.coordinator.dismissPlayer
+        )
+
+        XCTAssertEqual(navigation.viewControllers.count, 2)
+        XCTAssertEqual(navigation.topViewController?.title, destination.title)
+        XCTAssertTrue(navigation.topViewController is UIHostingController<CollectionOpeningView>)
+        XCTAssertNil(fixture.coordinator.playerConfig)
+        await fulfillment(of: [didShowOpening], timeout: 2)
+        await assertWaiterCount(1, in: preparations)
+
+        navigation.popToRootViewController(animated: false)
+        let dismissalDeadline = ContinuousClock.now.advanced(by: .seconds(2))
+        while fixture.coordinator.openingDestination != nil, ContinuousClock.now < dismissalDeadline {
+            try await Task.sleep(for: .milliseconds(1))
+        }
+        XCTAssertNil(fixture.coordinator.openingDestination)
+        await preparations.send(())
+        let didOpen = await task.value
+        XCTAssertFalse(didOpen)
+        XCTAssertEqual(navigation.viewControllers.count, 1)
+        XCTAssertNil(fixture.coordinator.playerConfig)
+    }
+
+    func testNavigationCompletedBackDoesNotDiscardNewReadyDestination() async throws {
+        let items = try firstCollectionItems(count: 2)
+        let preparations = CoordinatorValueQueue<Void>()
+        let fixture = try makeFixture(store: CoordinatorProgressStore(), prepareCollection: { id in
+            if id == items[0].id { await preparations.next() }
+        })
+        let firstTask = fixture.coordinator.requestCollectionOpen(collectionId: items[0].id, transition: .instant)
+        let root = UIHostingController(rootView: Color.black)
+        let navigation = PlayerNavigationController(rootViewController: root)
+        let navigationCoordinator = MobileCollectionsNavigationView<Color>.Coordinator()
+        navigationCoordinator.attach(navigationController: navigation, rootViewController: root)
+        navigation.delegate = navigationCoordinator
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive })
+        let window = UIWindow(windowScene: scene)
+        window.rootViewController = navigation
+        window.isHidden = false
+        window.layoutIfNeeded()
+        defer {
+            navigationCoordinator.invalidate()
+            window.isHidden = true
+        }
+        func synchronize(_ transition: PlayerPresentationTransition) {
+            navigationCoordinator.update(
+                playerConfig: fixture.coordinator.playerConfig,
+                openingDestination: fixture.coordinator.openingDestination,
+                collectionPreparation: fixture.coordinator.collectionPreparation,
+                onDismissOpeningDestination: fixture.coordinator.dismissOpeningDestination,
+                presentationTransition: transition,
+                onWillDismissPlayer: fixture.coordinator.resolutionForPendingPresentationRequest,
+                onDidPresentPlayer: fixture.coordinator.didPresentPlayer,
+                onDismissPlayer: fixture.coordinator.dismissPlayer
+            )
+        }
+        synchronize(.instant)
+        XCTAssertTrue(navigation.topViewController is UIHostingController<CollectionOpeningView>)
+        await assertWaiterCount(1, in: preparations)
+        let backResolution = try XCTUnwrap(fixture.coordinator.resolutionForPendingPresentationRequest())
+        let secondDidOpen = await fixture.coordinator.requestCollectionOpen(collectionId: items[1].id).value
+        XCTAssertTrue(secondDidOpen)
+        let config = try XCTUnwrap(fixture.coordinator.playerConfig)
+        synchronize(.animated)
+        navigation.delegate = nil
+        navigation.setViewControllers([root], animated: false)
+        navigation.delegate = navigationCoordinator
+        backResolution(true)
+        navigationCoordinator.navigationController(navigation, didShow: root, animated: false)
+        await preparations.send(())
+        _ = await firstTask.value
+
+        let deadline = ContinuousClock.now.advanced(by: .seconds(2))
+        while navigation.viewControllers.count == 1, ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(1))
+        }
+        XCTAssertEqual(fixture.coordinator.playerConfig?.id, config.id)
+        XCTAssertGreaterThan(navigation.viewControllers.count, 1)
+        XCTAssertFalse(navigation.topViewController is UIHostingController<CollectionOpeningView>)
+    }
+
+    func testDestinationOpensBeforePersistenceFlushAndSavedPositionLookup() async throws {
+        let item = try firstCollectionItem()
+        let flushes = CoordinatorValueQueue<Void>()
+        let progressResults = CoordinatorValueQueue<MobileViewingProgress?>()
+        let store = CoordinatorProgressStore(progressQueue: progressResults)
+        let fixture = try makeFixture(store: store, flushQueue: flushes)
+        let task = fixture.coordinator.requestCollectionOpen(collectionId: item.id)
+        let destination = try XCTUnwrap(fixture.coordinator.openingDestination)
+
+        XCTAssertTrue(fixture.coordinator.isReadyToRevealNavigation)
+        XCTAssertNil(fixture.coordinator.playerConfig)
+        await assertWaiterCount(1, in: flushes)
+        XCTAssertEqual(fixture.coordinator.openingDestination?.id, destination.id)
+        XCTAssertTrue(fixture.recorder.preparedRequests.isEmpty)
+        await flushes.send(())
+        await assertWaiterCount(1, in: progressResults)
+        XCTAssertEqual(fixture.coordinator.openingDestination?.id, destination.id)
+        XCTAssertTrue(fixture.recorder.preparedRequests.isEmpty)
+
+        fixture.coordinator.dismissOpeningDestination(destination)
+        await progressResults.send(nil)
+        let didOpen = await task.value
+        XCTAssertFalse(didOpen)
+        XCTAssertNil(fixture.coordinator.openingDestination)
+        XCTAssertNil(fixture.coordinator.playerConfig)
+        let metrics = await store.metrics()
+        XCTAssertTrue(metrics.preparedUpdates.isEmpty)
+        XCTAssertTrue(metrics.appliedUpdates.isEmpty)
+    }
+
+    func testDismissedSupersededDestinationCannotCancelNewSelection() async throws {
+        let items = try firstCollectionItems(count: 2)
+        let preparations = CoordinatorValueQueue<Void>()
+        let fixture = try makeFixture(store: CoordinatorProgressStore(), prepareCollection: { _ in
+            await preparations.next()
+        })
+        let first = fixture.coordinator.requestCollectionOpen(collectionId: items[0].id)
+        let oldDestination = try XCTUnwrap(fixture.coordinator.openingDestination)
+        await assertWaiterCount(1, in: preparations)
+        let second = fixture.coordinator.requestCollectionOpen(collectionId: items[1].id)
+        let newDestination = try XCTUnwrap(fixture.coordinator.openingDestination)
+        let invalidSelection = await fixture.coordinator.requestCollectionOpen(collectionId: "missing").value
+        XCTAssertFalse(invalidSelection)
+        XCTAssertEqual(fixture.coordinator.openingDestination?.id, newDestination.id)
+        fixture.coordinator.dismissOpeningDestination(oldDestination)
+        XCTAssertEqual(fixture.coordinator.openingDestination?.id, newDestination.id)
+        await assertWaiterCount(2, in: preparations)
+        await preparations.send(())
+        await preparations.send(())
+        let firstResult = await first.value
+        let secondResult = await second.value
+        XCTAssertFalse(firstResult)
+        XCTAssertTrue(secondResult)
+        XCTAssertEqual(fixture.coordinator.playerConfig?.initialItemId, items[1].id)
+    }
+
+    func testBackAfterPreparationBeforeShellReplacementDiscardsReadyPlayer() async throws {
+        let item = try firstCollectionItem()
+        let fixture = try makeFixture(store: CoordinatorProgressStore())
+        let task = fixture.coordinator.requestCollectionOpen(collectionId: item.id)
+        let destination = try XCTUnwrap(fixture.coordinator.openingDestination)
+        let didOpen = await task.value
+        XCTAssertTrue(didOpen)
+        XCTAssertNotNil(fixture.coordinator.playerConfig)
+
+        fixture.coordinator.dismissOpeningDestination(destination)
+
+        XCTAssertNil(fixture.coordinator.openingDestination)
+        XCTAssertNil(fixture.coordinator.playerConfig)
+    }
+
+    func testDelayedReadyUpdateCannotReopenDismissedLoadingDestination() async throws {
+        for completesDismissalBeforeUpdate in [false, true] {
+            let item = try firstCollectionItem()
+            let preparations = CoordinatorValueQueue<Void>()
+            let fixture = try makeFixture(store: CoordinatorProgressStore(), prepareCollection: { _ in
+                await preparations.next()
+            })
+            let task = fixture.coordinator.requestCollectionOpen(collectionId: item.id, transition: .instant)
+            let root = UIHostingController(rootView: Color.black)
+            let navigation = PlayerNavigationController(rootViewController: root)
+            let navigationCoordinator = MobileCollectionsNavigationView<Color>.Coordinator()
+            navigationCoordinator.attach(navigationController: navigation, rootViewController: root)
+            navigation.delegate = navigationCoordinator
+            let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+                .first { $0.activationState == .foregroundActive })
+            let window = UIWindow(windowScene: scene)
+            window.rootViewController = navigation
+            window.isHidden = false
+            window.layoutIfNeeded()
+            defer {
+                navigationCoordinator.invalidate()
+                window.isHidden = true
+            }
+            func synchronize() {
+                navigationCoordinator.update(
+                    playerConfig: fixture.coordinator.playerConfig,
+                    openingDestination: fixture.coordinator.openingDestination,
+                    collectionPreparation: fixture.coordinator.collectionPreparation,
+                    onDismissOpeningDestination: fixture.coordinator.dismissOpeningDestination,
+                    presentationTransition: .instant,
+                    onWillDismissPlayer: fixture.coordinator.resolutionForPendingPresentationRequest,
+                    onDidPresentPlayer: fixture.coordinator.didPresentPlayer,
+                    onDismissPlayer: fixture.coordinator.dismissPlayer
+                )
+            }
+            synchronize()
+            XCTAssertTrue(navigation.topViewController is UIHostingController<CollectionOpeningView>)
+            await assertWaiterCount(1, in: preparations)
+            await preparations.send(())
+            let didOpen = await task.value
+            XCTAssertTrue(didOpen)
+            XCTAssertNotNil(fixture.coordinator.playerConfig)
+            XCTAssertTrue(navigation.topViewController is UIHostingController<CollectionOpeningView>)
+
+            navigation.popToRootViewController(animated: false)
+            XCTAssertTrue(navigation.topViewController === root)
+            if completesDismissalBeforeUpdate {
+                navigationCoordinator.navigationController(navigation, didShow: root, animated: false)
+            }
+            synchronize()
+            XCTAssertTrue(navigation.topViewController === root)
+            let deadline = ContinuousClock.now.advanced(by: .seconds(2))
+            while fixture.coordinator.playerConfig != nil, ContinuousClock.now < deadline {
+                try await Task.sleep(for: .milliseconds(1))
+            }
+            XCTAssertTrue(navigation.topViewController === root)
+            XCTAssertNil(fixture.coordinator.playerConfig)
+            XCTAssertNil(fixture.coordinator.openingDestination)
+        }
+    }
+
+#if DEBUG
+    func testColdManifestDestinationDoesNotConstructPlayerUntilCanonicalTokensAreInstalled() async throws {
+        let item = try XCTUnwrap(MobileCollectionCatalog.allItems.first {
+            SuggestedItemsService.tokenResourceName(collectionId: $0.id) == "fidenza"
+        })
+        let data = try Data(contentsOf: XCTUnwrap(CollectionTokenFixtures.url(collectionId: item.id)))
+        let tokens = try BundledTokens(data: data)
+        let tokenIndex = 4
+        let token = tokens.items[tokenIndex]
+        let progress = MobileViewingProgress(
+            collectionId: item.id,
+            collectionName: item.name,
+            tokenId: token.id,
+            tokenIndex: tokenIndex,
+            tokenCount: tokens.items.count,
+            updatedAt: Date()
+        )
+        CollectionCatalog.resetPreparedCollectionForTesting(collectionId: item.id)
+        defer {
+            XCTAssertNoThrow(try CollectionCatalog.installPreparedTokens(data, collectionId: item.id))
+        }
+        let downloads = CoordinatorValueQueue<Void>()
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = PersistentCollectionTokenCache(rootURL: directory, transport: { _ in
+            await downloads.next()
+            return (data, 200)
+        })
+        let fixture = try makeFixture(
+            store: CoordinatorProgressStore(progressByCollectionId: [item.id: progress]),
+            collectionItems: [item],
+            prepareCollection: { id in
+                try await CollectionCatalog.prepareCollection(collectionId: id, cache: cache)
+            }
+        )
+        let task = fixture.coordinator.requestResumeViewing(progress)
+        XCTAssertEqual(fixture.coordinator.openingDestination?.collectionId, item.id)
+        XCTAssertTrue(fixture.coordinator.isReadyToRevealNavigation)
+        await assertWaiterCount(1, in: downloads)
+        XCTAssertNil(CollectionCatalog.generateToken(specificCollectionId: item.id, tokenIndex: tokenIndex))
+        XCTAssertNil(fixture.coordinator.playerConfig)
+        XCTAssertTrue(fixture.recorder.preparedRequests.isEmpty)
+
+        await downloads.send(())
+        let didOpen = await task.value
+        XCTAssertTrue(didOpen)
+        let config = try XCTUnwrap(fixture.coordinator.playerConfig)
+        XCTAssertEqual(config.initialTokenId, token.id)
+        XCTAssertEqual(config.initialTokenIndex, tokenIndex)
+        XCTAssertEqual(
+            CollectionCatalog.generateToken(specificCollectionId: item.id, tokenIndex: tokenIndex)?.id,
+            token.id
+        )
+    }
+#endif
+
     private func assertPlayerPresented(
         _ coordinator: MobileCollectionsSessionCoordinator,
         file: StaticString = #filePath,
@@ -787,9 +1111,10 @@ extension MobileCollectionsSessionCoordinatorTests {
         widgetTokenInsertion: PlayerWidgetTokenInsertion? = nil,
         prewarmCollectionIds: [String] = ["prewarm"],
         flushQueue: CoordinatorValueQueue<Void>? = nil,
+        collectionItems: [MobileCollectionItem]? = nil,
         prepareCollection: @escaping @MainActor (String) async throws -> Void = { _ in }
     ) throws -> CoordinatorFixture {
-        let items = try firstCollectionItems(count: 2)
+        let items = try collectionItems ?? firstCollectionItems(count: 2)
         let widgetState = WidgetLaunchPresentationState()
         let recorder = CoordinatorRecorder()
         let visibleCollectionIds = Set(items.map(\.id))
@@ -959,6 +1284,37 @@ extension MobileCollectionsSessionCoordinatorTests {
             file: file,
             line: line
         )
+    }
+}
+
+@MainActor
+private final class CoordinatorNavigationObserver: NSObject, UINavigationControllerDelegate {
+    private let delegate: any UINavigationControllerDelegate
+    private var didShowOpening: XCTestExpectation?
+
+    init(forwardingTo delegate: any UINavigationControllerDelegate, didShowOpening: XCTestExpectation) {
+        self.delegate = delegate
+        self.didShowOpening = didShowOpening
+    }
+
+    func navigationController(
+        _ navigationController: UINavigationController,
+        willShow viewController: UIViewController,
+        animated: Bool
+    ) {
+        delegate.navigationController?(navigationController, willShow: viewController, animated: animated)
+    }
+
+    func navigationController(
+        _ navigationController: UINavigationController,
+        didShow viewController: UIViewController,
+        animated: Bool
+    ) {
+        delegate.navigationController?(navigationController, didShow: viewController, animated: animated)
+        if viewController is UIHostingController<CollectionOpeningView> {
+            didShowOpening?.fulfill()
+            didShowOpening = nil
+        }
     }
 }
 

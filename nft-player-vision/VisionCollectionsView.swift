@@ -36,6 +36,7 @@ struct VisionCollectionsView: View {
     @State private var gridScrollMemoryTracker: CollectionsGridScrollMemoryTracker
     @State private var hasRestoredInitialGridScrollPosition: Bool
     @State private var playerConfig: VisionPlayerConfig?
+    @State private var openingDestination: CollectionOpeningDestination?
     @State private var immersiveSpaceState = VisionImmersiveSpaceState.closed
     @State private var immersiveModeRequestID = 0
     @State private var shouldEnableImmersiveModeWhenReady = false
@@ -97,7 +98,9 @@ struct VisionCollectionsView: View {
                 )
                 .allowsHitTesting(
                     hasRestoredInitialGridScrollPosition && hasLoadedViewingProgress
+                        && openingDestination == nil
                 )
+                .accessibilityHidden(openingDestination != nil)
                 .collectionsGridScrollMemoryRestoration(
                     using: scrollProxy,
                     tracker: gridScrollMemoryTracker,
@@ -105,13 +108,16 @@ struct VisionCollectionsView: View {
                 )
             }
 
-            if let playerConfig {
-                VisionPlayerView(config: playerConfig) {
-                    dismissPlayer(playerConfig)
-                }
+            if let openingDestination {
+                VisionCollectionDestinationView(
+                    destination: openingDestination,
+                    preparation: collectionPreparation,
+                    playerConfig: playerConfig,
+                    onDismiss: { dismissPlayerDestination(openingDestination) }
+                )
                 .ignoresSafeArea()
                 .zIndex(1)
-                .id(playerConfig.id)
+                .id(openingDestination.id)
                 .transition(.opacity)
             }
         }
@@ -120,7 +126,7 @@ struct VisionCollectionsView: View {
             minHeight: visionCollectionsMinimumWindowHeight
         )
         .ornament(
-            visibility: playerConfig == nil ? .visible : .hidden,
+            visibility: openingDestination == nil ? .visible : .hidden,
             attachmentAnchor: .scene(.top),
             contentAlignment: .bottom
         ) {
@@ -161,7 +167,7 @@ struct VisionCollectionsView: View {
             NotificationCenter.default.publisher(for: .playerViewingProgressDidChange)
                 .receive(on: RunLoop.main)
         ) { _ in
-            guard playerConfig == nil else { return }
+            guard openingDestination == nil else { return }
             requestViewingProgressRefresh()
         }
         .task(id: viewingProgressRefreshID) {
@@ -169,7 +175,6 @@ struct VisionCollectionsView: View {
         }
         .collectionsGridScrollMemoryLifecycleFlush(tracker: gridScrollMemoryTracker)
         .preloadCollectionCovers()
-        .collectionPreparation(collectionPreparation, onCancel: cancelPendingPlayerPresentation)
         .onDisappear {
             cancelPendingPlayerPresentation()
             dismissImmersiveSpaceIfNeeded()
@@ -288,13 +293,20 @@ struct VisionCollectionsView: View {
         Task {
             await PlayerPersistenceUpdates.flush()
             guard playerPresentationGate.isPending(request), !Task.isCancelled else { return }
-            guard let item = await randomCollectionItemPreferringUnfinishedCollections() else { return }
+            let snapshot = await PlayerViewingProgressStore.shared.progressSnapshot()
             guard playerPresentationGate.isPending(request), !Task.isCancelled else { return }
-            let progress = await PlayerViewingProgressStore.shared.progress(collectionId: item.id)
-            guard playerPresentationGate.isPending(request), !Task.isCancelled else { return }
+            guard let item = randomCollectionItemPreferringUnfinishedCollections(
+                progressSnapshot: snapshot
+            ) else { return }
+            let progress = snapshot.progress(collectionId: item.id)
             let initialTokenId = progress?.isComplete == false ? progress?.tokenId : nil
             let initialTokenIndex = progress?.isComplete == false ? progress?.tokenIndex : nil
 
+            playerConfig = nil
+            openingDestination = CollectionOpeningDestination(
+                collectionId: item.id,
+                initialTokenIndex: initialTokenIndex
+            )
             await openPlayer(
                 initialItemId: item.id,
                 initialTokenId: initialTokenId,
@@ -305,10 +317,11 @@ struct VisionCollectionsView: View {
         }
     }
 
-    private func dismissPlayer(_ config: VisionPlayerConfig) {
-        guard playerConfig?.id == config.id else { return }
+    private func dismissPlayerDestination(_ destination: CollectionOpeningDestination) {
+        guard openingDestination?.id == destination.id else { return }
         cancelPendingPlayerPresentation()
         playerConfig = nil
+        openingDestination = nil
         requestViewingProgressRefresh()
     }
 
@@ -428,8 +441,7 @@ struct VisionCollectionsView: View {
     private func openCollection(collectionId: String) {
         guard isVisibleCollection(collectionId) else { return }
 
-        collectionPreparation.cancel()
-        let request = playerPresentationGate.begin()
+        let request = beginPlayerPresentation(collectionId: collectionId)
         Task {
             await openCollection(
                 collectionId: collectionId,
@@ -462,8 +474,11 @@ struct VisionCollectionsView: View {
     }
 
     private func resumeViewing(_ progress: PlayerViewingProgress) {
-        collectionPreparation.cancel()
-        let request = playerPresentationGate.begin()
+        guard isVisibleCollection(progress.collectionId) else { return }
+        let request = beginPlayerPresentation(
+            collectionId: progress.collectionId,
+            initialTokenIndex: progress.tokenIndex
+        )
         Task {
             await openCollection(
                 collectionId: progress.collectionId,
@@ -499,8 +514,10 @@ struct VisionCollectionsView: View {
             return
         }
 
-        collectionPreparation.cancel()
-        let request = playerPresentationGate.begin()
+        let request = beginPlayerPresentation(
+            collectionId: collectionId,
+            opensToken: tokenId != nil
+        )
         let handoffRequest = widgetLaunchPresentationState.beginWidgetPlayerHandoff(for: url)
         Task {
             defer {
@@ -632,11 +649,33 @@ struct VisionCollectionsView: View {
     private func cancelPendingPlayerPresentation() {
         collectionPreparation.cancel()
         playerPresentationGate.cancel()
+        if playerConfig == nil {
+            openingDestination = nil
+        }
     }
 
-    private func randomCollectionItemPreferringUnfinishedCollections() async -> CollectionCatalogItem? {
-        let progressSnapshot = await PlayerViewingProgressStore.shared.progressSnapshot()
-        let unfinishedItems = collectionItems.filter { !progressSnapshot.viewedToEndCollectionIds.contains($0.id) }
+    private func beginPlayerPresentation(
+        collectionId: String,
+        opensToken: Bool = false,
+        initialTokenIndex: Int? = nil
+    ) -> PlayerPresentationRequestGate.Request {
+        collectionPreparation.cancel()
+        let request = playerPresentationGate.begin()
+        playerConfig = nil
+        openingDestination = CollectionOpeningDestination(
+            collectionId: collectionId,
+            opensToken: opensToken,
+            initialTokenIndex: initialTokenIndex
+        )
+        return request
+    }
+
+    private func randomCollectionItemPreferringUnfinishedCollections(
+        progressSnapshot: PlayerViewingProgressSnapshot
+    ) -> CollectionCatalogItem? {
+        let unfinishedItems = collectionItems.filter {
+            !progressSnapshot.viewedToEndCollectionIds.contains($0.id)
+        }
         return (unfinishedItems.isEmpty ? collectionItems : unfinishedItems).randomElement()
     }
 
@@ -665,6 +704,56 @@ struct VisionCollectionsView: View {
         collectionItems.contains { $0.id == collectionId }
     }
 
+}
+
+private struct VisionCollectionDestinationView: View {
+    let destination: CollectionOpeningDestination
+    let preparation: CollectionPreparationState
+    let playerConfig: VisionPlayerConfig?
+    let onDismiss: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color.black
+            if let playerConfig {
+                VisionPlayerView(config: playerConfig, onDismiss: onDismiss)
+                    .id(playerConfig.id)
+            } else {
+                CollectionOpeningView(destination: destination, preparation: preparation)
+                    .environment(\.colorScheme, .dark)
+            }
+        }
+        .ornament(
+            visibility: playerConfig == nil ? .visible : .hidden,
+            attachmentAnchor: .scene(.top),
+            contentAlignment: .bottom
+        ) {
+            HStack(spacing: VisionOrnamentMetrics.spacing) {
+                HStack(spacing: VisionOrnamentMetrics.controlGroupSpacing) {
+                    VisionOrnamentIconButton(
+                        image: Images.back,
+                        accessibilityLabel: Strings.back,
+                        action: onDismiss
+                    )
+                }
+                .visionOrnamentControlGroupStyle()
+
+                Text(destination.title)
+                    .font(.headline.weight(.semibold))
+                    .lineLimit(1)
+                    .padding(.horizontal, 16)
+                    .frame(height: VisionOrnamentMetrics.controlGroupHeight)
+                    .background(.ultraThinMaterial, in: Capsule())
+            }
+            .padding(.leading, VisionOrnamentMetrics.horizontalPadding)
+            .padding(
+                .trailing,
+                VisionOrnamentMetrics.horizontalPadding
+                    + VisionOrnamentMetrics.trailingControlReservedWidth
+            )
+            .padding(.bottom, VisionOrnamentMetrics.bottomPadding)
+        }
+    }
 }
 
 private struct VisionImmersiveModeButton: View {

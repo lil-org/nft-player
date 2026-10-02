@@ -7,11 +7,12 @@ typealias MacPlayerDisplayMode = PlayerDisplayMode
 
 enum MacRoute: Hashable {
     case collections
+    case opening(destinationId: UUID, mode: MacPlayerDisplayMode)
     case player(sessionId: UUID, mode: MacPlayerDisplayMode)
 
     var displayMode: MacPlayerDisplayMode? {
         switch self {
-        case .collections:
+        case .collections, .opening:
             return nil
         case let .player(_, mode):
             return mode
@@ -20,7 +21,7 @@ enum MacRoute: Hashable {
 
     var sessionId: UUID? {
         switch self {
-        case .collections:
+        case .collections, .opening:
             return nil
         case let .player(sessionId, _):
             return sessionId
@@ -100,6 +101,7 @@ final class MacNavigationModel {
     private(set) var canGoToNextPage = false
 
     private(set) var session: MacPlayerSession?
+    private(set) var openingDestination: CollectionOpeningDestination?
     private(set) var routeTransition: MacRouteTransition = .none
     weak var commands: MacNavigationCommands?
 
@@ -109,7 +111,30 @@ final class MacNavigationModel {
 
     private init() {}
 
+    func presentOpening(
+        _ destination: CollectionOpeningDestination,
+        transition: MacRouteTransition
+    ) {
+        releaseSession()
+        openingDestination = destination
+        let mode: MacPlayerDisplayMode
+        switch destination.layout {
+        case .browser:
+            mode = .collectionBrowser
+        case .artwork:
+            mode = .onePerPage
+        }
+        setRoute(.opening(destinationId: destination.id, mode: mode), transition: transition)
+    }
+
+    func updateOpeningInitialTokenIndex(_ index: Int, collectionId: String) {
+        guard let openingDestination,
+              openingDestination.collectionId == collectionId else { return }
+        self.openingDestination = openingDestination.withInitialTokenIndex(index)
+    }
+
     func present(playerModel: PlayerModel, transition: MacRouteTransition = .slide) {
+        openingDestination = nil
         let session = MacPlayerSession(playerModel: playerModel)
         let mode = MacPlayerDisplayMode.initialMode(
             hasWidgetTokenInsertion: playerModel.widgetTokenInsertion != nil,
@@ -160,10 +185,14 @@ final class MacNavigationModel {
 
     func goBack() {
         Navigator.shared.cancelPendingPlayerPresentation()
+        if case .opening = route {
+            setRoute(.collections, transition: .slide)
+            return
+        }
         if commands?.navigateBackWithHeroTransition() == true { return }
 
         switch route {
-        case .collections:
+        case .collections, .opening:
             break
         case let .player(_, mode):
             if mode == .onePerPage, session?.supportsCollectionBrowser == true {
@@ -197,6 +226,7 @@ final class MacNavigationModel {
         routeTransition = transition
         if route == .collections {
             releaseSession()
+            openingDestination = nil
         }
         self.route = route
         refreshChrome()
@@ -271,12 +301,13 @@ final class MacNavigationModel {
     }
 
     private func makeTitle() -> String {
-        guard let session else { return Strings.nftPlayer }
-
         switch route {
         case .collections:
             return Strings.nftPlayer
+        case .opening:
+            return openingDestination?.title ?? Strings.nftPlayer
         case let .player(_, mode):
+            guard let session else { return Strings.nftPlayer }
             switch mode {
             case .onePerPage:
                 return session.playerModel.playerWindowTitle

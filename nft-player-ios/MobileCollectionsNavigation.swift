@@ -5,6 +5,9 @@ struct MobileCollectionsNavigationView<RootView: View>: UIViewControllerRepresen
 
     let rootView: RootView
     let playerConfig: MobilePlayerConfig?
+    let openingDestination: CollectionOpeningDestination?
+    let collectionPreparation: CollectionPreparationState
+    let onDismissOpeningDestination: (CollectionOpeningDestination) -> Void
     let presentationTransition: PlayerPresentationTransition
     let onWillDismissPlayer: () -> ((Bool) -> Void)?
     let onDidPresentPlayer: (MobilePlayerConfig) -> Void
@@ -33,6 +36,9 @@ struct MobileCollectionsNavigationView<RootView: View>: UIViewControllerRepresen
         )
         context.coordinator.update(
             playerConfig: playerConfig,
+            openingDestination: openingDestination,
+            collectionPreparation: collectionPreparation,
+            onDismissOpeningDestination: onDismissOpeningDestination,
             presentationTransition: presentationTransition,
             onWillDismissPlayer: onWillDismissPlayer,
             onDidPresentPlayer: onDidPresentPlayer,
@@ -48,6 +54,9 @@ struct MobileCollectionsNavigationView<RootView: View>: UIViewControllerRepresen
         context.coordinator.rootViewController?.rootView = rootView
         context.coordinator.update(
             playerConfig: playerConfig,
+            openingDestination: openingDestination,
+            collectionPreparation: collectionPreparation,
+            onDismissOpeningDestination: onDismissOpeningDestination,
             presentationTransition: presentationTransition,
             onWillDismissPlayer: onWillDismissPlayer,
             onDidPresentPlayer: onDidPresentPlayer,
@@ -126,9 +135,19 @@ struct MobileCollectionsNavigationView<RootView: View>: UIViewControllerRepresen
             }
         }
 
+        private struct OpeningPresentation {
+            let destination: CollectionOpeningDestination
+            let viewController: UIHostingController<CollectionOpeningView>
+        }
+
         weak var rootViewController: UIHostingController<RootView>?
         private weak var navigationController: PlayerNavigationController?
         private var activeSession: PlayerPresentationSession?
+        private var activeOpening: OpeningPresentation?
+        private var desiredOpeningDestination: CollectionOpeningDestination?
+        private var collectionPreparation: CollectionPreparationState?
+        private var onDismissOpeningDestination: ((CollectionOpeningDestination) -> Void)?
+        private var dismissedOpeningIDAwaitingStateUpdate: UUID?
         private var desiredPlayerConfig: MobilePlayerConfig?
         private var desiredPresentationTransition: PlayerPresentationTransition = .animated
         private var onWillDismissPlayer: (() -> ((Bool) -> Void)?)?
@@ -152,12 +171,21 @@ struct MobileCollectionsNavigationView<RootView: View>: UIViewControllerRepresen
 
         func update(
             playerConfig: MobilePlayerConfig?,
+            openingDestination: CollectionOpeningDestination?,
+            collectionPreparation: CollectionPreparationState,
+            onDismissOpeningDestination: @escaping (CollectionOpeningDestination) -> Void,
             presentationTransition: PlayerPresentationTransition,
             onWillDismissPlayer: @escaping () -> ((Bool) -> Void)?,
             onDidPresentPlayer: @escaping (MobilePlayerConfig) -> Void,
             onDismissPlayer: @escaping (MobilePlayerConfig) -> Void
         ) {
             desiredPlayerConfig = playerConfig
+            desiredOpeningDestination = openingDestination
+            self.collectionPreparation = collectionPreparation
+            self.onDismissOpeningDestination = onDismissOpeningDestination
+            if dismissedOpeningIDAwaitingStateUpdate != openingDestination?.id {
+                dismissedOpeningIDAwaitingStateUpdate = nil
+            }
             desiredPresentationTransition = presentationTransition
             self.onWillDismissPlayer = onWillDismissPlayer
             self.onDidPresentPlayer = onDidPresentPlayer
@@ -165,7 +193,7 @@ struct MobileCollectionsNavigationView<RootView: View>: UIViewControllerRepresen
             if dismissedConfigIDAwaitingStateUpdate != playerConfig?.id {
                 dismissedConfigIDAwaitingStateUpdate = nil
             }
-            if playerConfig != nil,
+            if playerConfig != nil || openingDestination != nil,
                !presentationTransition.animatesNavigationTransition {
                 reconcileNavigationState()
             } else {
@@ -180,6 +208,10 @@ struct MobileCollectionsNavigationView<RootView: View>: UIViewControllerRepresen
             isAwaitingNavigationTransition = false
             activeSession?.invalidate()
             activeSession = nil
+            activeOpening = nil
+            desiredOpeningDestination = nil
+            collectionPreparation = nil
+            onDismissOpeningDestination = nil
             navigationController?.delegate = nil
             navigationController = nil
             rootViewController = nil
@@ -211,12 +243,29 @@ struct MobileCollectionsNavigationView<RootView: View>: UIViewControllerRepresen
                 return
             }
 
+            if let activeOpening,
+               !navigationController.viewControllers.contains(where: { $0 === activeOpening.viewController }) {
+                return
+            }
+
+            if let desiredOpeningDestination,
+               dismissedOpeningIDAwaitingStateUpdate == desiredOpeningDestination.id {
+                return
+            }
+
             guard let desiredPlayerConfig else {
-                guard let activeSession,
-                      activeSession.owns(navigationController.topViewController) else {
-                    return
+                if let desiredOpeningDestination,
+                   let collectionPreparation {
+                    presentOpeningDestination(
+                        desiredOpeningDestination,
+                        preparation: collectionPreparation,
+                        navigationController: navigationController,
+                        rootViewController: rootViewController
+                    )
+                } else if activeOpening?.viewController === navigationController.topViewController
+                    || activeSession?.owns(navigationController.topViewController) == true {
+                    navigationController.popToRootViewController(animated: true)
                 }
-                navigationController.popToRootViewController(animated: true)
                 return
             }
 
@@ -263,6 +312,50 @@ struct MobileCollectionsNavigationView<RootView: View>: UIViewControllerRepresen
                 navigationController: navigationController,
                 rootViewController: rootViewController
             )
+        }
+
+        private func presentOpeningDestination(
+            _ destination: CollectionOpeningDestination,
+            preparation: CollectionPreparationState,
+            navigationController: PlayerNavigationController,
+            rootViewController: UIHostingController<RootView>
+        ) {
+            guard dismissedOpeningIDAwaitingStateUpdate != destination.id,
+                  activeOpening?.destination.id != destination.id else { return }
+            activeSession?.invalidate()
+            activeSession = nil
+            let controller = MobileCollectionOpeningHostingController(rootView: CollectionOpeningView(
+                destination: destination,
+                preparation: preparation
+            ))
+            controller.title = destination.title
+            controller.safeAreaRegions = []
+            controller.navigationItem.backButtonDisplayMode = .minimal
+            let backgroundColor = MobilePlayerBackgroundColor.color(
+                forCollectionId: destination.collectionId
+            )
+            var backgroundBrightness: CGFloat = 0
+            backgroundColor.getHue(nil, saturation: nil, brightness: &backgroundBrightness, alpha: nil)
+            controller.overrideUserInterfaceStyle = backgroundBrightness > 0.5 ? .light : .dark
+            controller.view.backgroundColor = backgroundColor
+            activeOpening = OpeningPresentation(
+                destination: destination,
+                viewController: controller
+            )
+            navigationController.resetNavigationBarChromeVisibilityState()
+            navigationController.setNavigationBarHidden(false, animated: false)
+            restoreRootNavigationState(navigationController)
+            if navigationController.topViewController === rootViewController {
+                navigationController.pushViewController(
+                    controller,
+                    animated: desiredPresentationTransition.animatesNavigationTransition
+                )
+            } else {
+                navigationController.setViewControllers(
+                    [rootViewController, controller],
+                    animated: false
+                )
+            }
         }
 
         private func awaitNavigationTransition(
@@ -386,6 +479,8 @@ struct MobileCollectionsNavigationView<RootView: View>: UIViewControllerRepresen
             navigationController: PlayerNavigationController,
             rootViewController: UIHostingController<RootView>
         ) {
+            let replacesOpeningDestination = activeOpening != nil
+            activeOpening = nil
             activeSession?.invalidate()
 
             let session = makePlayerSession(
@@ -395,7 +490,8 @@ struct MobileCollectionsNavigationView<RootView: View>: UIViewControllerRepresen
             activeSession = session
             navigationController.setViewControllers(
                 [rootViewController] + session.initialStack,
-                animated: desiredPresentationTransition.animatesNavigationTransition
+                animated: !replacesOpeningDestination
+                    && desiredPresentationTransition.animatesNavigationTransition
                     && session.initialStack.count == 1
             )
             session.interactionController.prepareForPlayerPresentation(
@@ -434,11 +530,11 @@ struct MobileCollectionsNavigationView<RootView: View>: UIViewControllerRepresen
             }
 
             guard viewController === rootViewController,
-                  let activeSession else { return }
+                  activeSession != nil || activeOpening != nil else { return }
             schedulePendingPresentationCancellation(
                 using: navigationController.transitionCoordinator
             )
-            activeSession.interactionController.prepareForNavigationPopTransition(
+            activeSession?.interactionController.prepareForNavigationPopTransition(
                 using: navigationController.transitionCoordinator
             )
         }
@@ -478,6 +574,22 @@ struct MobileCollectionsNavigationView<RootView: View>: UIViewControllerRepresen
                 return
             }
 
+            if viewController === rootViewController,
+               let completedOpening = activeOpening {
+                activeOpening = nil
+                dismissedOpeningIDAwaitingStateUpdate = completedOpening.destination.id
+                if desiredOpeningDestination?.id == completedOpening.destination.id {
+                    dismissedConfigIDAwaitingStateUpdate = desiredPlayerConfig?.id
+                }
+                restoreRootNavigationState(navigationController)
+                Task { @MainActor [weak self] in
+                    await Task.yield()
+                    self?.onDismissOpeningDestination?(completedOpening.destination)
+                }
+                scheduleReconcile()
+                return
+            }
+
             guard viewController === rootViewController,
                   let completedSession = activeSession else {
                 restoreRootNavigationState(navigationController)
@@ -505,6 +617,19 @@ struct MobileCollectionsNavigationView<RootView: View>: UIViewControllerRepresen
             navigationController.setNeedsStatusBarAppearanceUpdate()
             rootViewController?.setNeedsStatusBarAppearanceUpdate()
         }
+    }
+}
+
+private final class MobileCollectionOpeningHostingController: UIHostingController<CollectionOpeningView> {
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        let insets = view.window?.safeAreaInsets ?? .zero
+        guard rootView.topContentInset != insets.top
+            || rootView.bottomContentInset != insets.bottom else { return }
+        var content = rootView
+        content.topContentInset = insets.top
+        content.bottomContentInset = insets.bottom
+        rootView = content
     }
 }
 
@@ -1044,4 +1169,3 @@ final class PlayerNavigationController: UINavigationController {
     }
 
 }
-

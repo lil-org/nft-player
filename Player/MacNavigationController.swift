@@ -19,7 +19,7 @@ extension MacRoute {
         switch self {
         case .collections:
             return 0
-        case let .player(_, mode):
+        case let .opening(_, mode), let .player(_, mode):
             return mode == .collectionBrowser ? 1 : 2
         }
     }
@@ -135,9 +135,15 @@ final class MacNavigationContainerViewController: NSViewController {
 
         currentRoute = route
         prepareScreen(viewController, for: route)
+        let effectiveTransition: MacRouteTransition
+        if case .opening = previousRoute, case .player = route {
+            effectiveTransition = .none
+        } else {
+            effectiveTransition = transition
+        }
         show(
             viewController,
-            routeTransition: transition,
+            routeTransition: effectiveTransition,
             slidesForward: (previousRoute?.depth ?? -1) < route.depth
         )
         updateWindowAppearance()
@@ -147,6 +153,15 @@ final class MacNavigationContainerViewController: NSViewController {
         switch route {
         case .collections:
             return collectionsViewController
+        case let .opening(destinationId, _):
+            guard let destination = model.openingDestination,
+                  destination.id == destinationId else { return nil }
+            return NSHostingController(
+                rootView: MacCollectionOpeningScreen(
+                    model: model,
+                    destination: destination
+                )
+            )
         case let .player(_, mode):
             switch mode {
             case .collectionBrowser:
@@ -567,6 +582,25 @@ extension MacNavigationContainerViewController: MacNavigationCommands {
         }
     }
 
+}
+
+private struct MacCollectionOpeningScreen: View {
+    let model: MacNavigationModel
+    let destination: CollectionOpeningDestination
+
+    var body: some View {
+        let destination = model.openingDestination.flatMap {
+            $0.id == self.destination.id ? $0 : nil
+        } ?? self.destination
+        let backgroundColor = MacPlayerBackgroundColor.color(
+            forCollectionId: destination.collectionId
+        )
+        let isLightBackground = (backgroundColor.usingColorSpace(.sRGB)?.brightnessComponent ?? 0) > 0.5
+        CollectionOpeningView(destination: destination, preparation: model.collectionPreparation)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(nsColor: backgroundColor))
+            .environment(\.colorScheme, isLightBackground ? .light : .dark)
+    }
 }
 
 struct MacNavigationContainerView: NSViewControllerRepresentable {
