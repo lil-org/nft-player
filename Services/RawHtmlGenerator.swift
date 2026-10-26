@@ -32,7 +32,7 @@ nonisolated enum RawHtmlGenerator {
 
     static func createHtml(
         script: Script,
-        token: BundledTokens.Item,
+        token: CollectionTokens.Item,
         forceLibScript: String? = nil,
         libraryScriptProvider: ((Script.Kind) -> String?)? = nil
     ) -> String {
@@ -623,7 +623,7 @@ nonisolated enum RawHtmlGenerator {
         """
     }
 
-    private static func artBlocksTokenData(script: Script, token: BundledTokens.Item, hash: String) -> String {
+    private static func artBlocksTokenData(script: Script, token: CollectionTokens.Item, hash: String) -> String {
         var value: [String: Any] = ["tokenId": token.id]
         if script.address.lowercased() == "0x059edd72cd353df5106d2b9cc5ab83a52287ac3a" {
             value["hashes"] = [hash]

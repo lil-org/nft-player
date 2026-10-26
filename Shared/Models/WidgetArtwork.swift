@@ -2,7 +2,7 @@ import Foundation
 
 nonisolated struct WidgetCollection: Decodable, Hashable, Sendable {
     let address: String
-    let internalSlug: String?
+    let internalSlug: String
     let collectionId: String?
     let abId: String?
     let name: String
@@ -32,7 +32,14 @@ nonisolated struct WidgetCollection: Decodable, Hashable, Sendable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         address = try container.decode(String.self, forKey: .address)
-        internalSlug = try container.decodeIfPresent(String.self, forKey: .internalSlug)
+        internalSlug = try container.decode(String.self, forKey: .internalSlug)
+        guard !internalSlug.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .internalSlug,
+                in: container,
+                debugDescription: "Collection resource slug must not be empty"
+            )
+        }
         collectionId = try container.decodeIfPresent(String.self, forKey: .collectionId)
         abId = try container.decodeIfPresent(String.self, forKey: .abId)
         urlPrefix = try container.decodeIfPresent(String.self, forKey: .urlPrefix)
@@ -46,13 +53,14 @@ nonisolated struct WidgetCollection: Decodable, Hashable, Sendable {
         iosOnly = try container.decodeIfPresent(Bool.self, forKey: .iosOnly)
         generativeOnly = try container.decodeIfPresent(Bool.self, forKey: .generativeOnly)
 
-        let decodedName = try container.decodeIfPresent(String.self, forKey: .name)?
+        name = try container.decode(String.self, forKey: .name)
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        let fallbackName = address + (abId ?? collectionId ?? "")
-        if let decodedName, !decodedName.isEmpty {
-            name = decodedName
-        } else {
-            name = fallbackName
+        guard !name.isEmpty else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .name,
+                in: container,
+                debugDescription: "Collection name must not be empty"
+            )
         }
     }
 
@@ -60,9 +68,8 @@ nonisolated struct WidgetCollection: Decodable, Hashable, Sendable {
         address + (abId ?? collectionId ?? "")
     }
 
-    var bundledResourceName: String {
-        guard let internalSlug, !internalSlug.isEmpty else { return id }
-        return internalSlug
+    var resourceName: String {
+        internalSlug
     }
 
     func isAvailable(on platform: CollectionPlatformAvailability.Platform = .current) -> Bool {
@@ -155,7 +162,7 @@ nonisolated struct WidgetTokenItem: Decodable, Hashable, Sendable {
         }
 
         guard let urlString = resolvedURLString(collection: collection),
-              let resolved = BundledMediaResolver.resolve(urlString),
+              let resolved = ArtworkMediaResolver.resolve(urlString),
               let components = URLComponents(url: resolved.url, resolvingAgainstBaseURL: false),
               let scheme = components.scheme?.lowercased(),
               scheme == "http" || scheme == "https",

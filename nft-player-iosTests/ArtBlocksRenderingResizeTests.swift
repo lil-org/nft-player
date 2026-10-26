@@ -225,13 +225,13 @@ extension ArtBlocksRenderingResizeTests {
 
     private func makePlayer(
         session: MobilePlaybackSession,
-        presentationMode: MobileBundledGenerativePresentationMode,
+        presentationMode: MobileWebGenerativePresentationMode,
         onSettledPagePositionUpdate: @escaping (PlayerPagePosition, Bool) -> Bool = { _, _ in true }
     ) -> HorizontalPlayerContainer {
         HorizontalPlayerContainer(
             playbackSession: session,
             chrome: MobilePlayerChromeController(allowsNavigationBackSwipe: false),
-            bundledGenerativePresentationMode: presentationMode,
+            webGenerativePresentationMode: presentationMode,
             onFocusedPagePositionUpdate: { _ in },
             onSettledPagePositionUpdate: onSettledPagePositionUpdate,
             onPaginationAttempt: {},

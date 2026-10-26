@@ -83,6 +83,7 @@ final class WidgetSelectionTests: XCTestCase {
     private func collection(_ fields: [String: Any] = [:]) throws -> WidgetCollection {
         var values: [String: Any] = [
             "address": "collection",
+            "name": "Artwork",
             "chain": "solana",
             "internal_slug": "artwork",
             "script": ["kind": "js"],

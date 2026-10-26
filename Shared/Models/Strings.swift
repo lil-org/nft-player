@@ -37,7 +37,6 @@ nonisolated struct Strings: Sendable {
     static let search = loc("Search")
     static let cancel = loc("Cancel")
     static let retry = loc("Retry")
-    static let loadingCollection = loc("Loading collection…")
     static let collectionLoadFailed = loc("Could not load collection")
     static let nothingFound = loc("Nothing found.")
     static let mail = loc("Mail")

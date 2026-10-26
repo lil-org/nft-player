@@ -619,11 +619,7 @@ private struct TvCollectionGridButtonStyle: ButtonStyle {
 private extension View {
     @ViewBuilder
     func tvCollectionGridFocusEffectDisabled() -> some View {
-        if #available(tvOS 17.0, *) {
-            focusEffectDisabled()
-        } else {
-            self
-        }
+        focusEffectDisabled()
     }
 }
 

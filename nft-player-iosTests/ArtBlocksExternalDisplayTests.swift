@@ -383,9 +383,9 @@ extension ArtBlocksExternalDisplayTests {
         add(attachment)
     }
 
-    private func token(collectionId: String, index: Int) throws -> (generated: GeneratedToken, bundled: BundledTokens.Item) {
+    private func token(collectionId: String, index: Int) throws -> (generated: GeneratedToken, bundled: CollectionTokens.Item) {
         let generated = try XCTUnwrap(TokenGenerator.generateToken(specificCollectionId: collectionId, tokenIndex: index))
-        let bundled = try XCTUnwrap(TokenGenerator.bundledWebGenerativeToken(specificCollectionId: collectionId, tokenIndex: index))
+        let bundled = try XCTUnwrap(TokenGenerator.webGenerativeToken(specificCollectionId: collectionId, tokenIndex: index))
         XCTAssertEqual(generated.id, bundled.id)
         XCTAssertEqual(generated.fullCollectionId, collectionId)
         XCTAssertNil(generated.media)
@@ -395,7 +395,7 @@ extension ArtBlocksExternalDisplayTests {
 
     private func ready(
         _ fixture: ExternalDisplayIntegrationFixture,
-        token: BundledTokens.Item,
+        token: CollectionTokens.Item,
         calibrated: Bool,
         expectedDocuments: Int
     ) async throws -> [String: Any] {

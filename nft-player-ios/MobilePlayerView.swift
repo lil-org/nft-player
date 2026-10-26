@@ -22,7 +22,7 @@ private let playerNavigationTitleMinimumWidth: CGFloat = 112
 private let playerProgressControlSize: CGFloat = 34
 private let playerNavigationArrowSpacing: CGFloat = 4
 
-enum MobileBundledGenerativePresentationMode: Equatable {
+enum MobileWebGenerativePresentationMode: Equatable {
     case aspectFit
     case fullscreen
 }
@@ -336,8 +336,8 @@ struct MobilePlayerView: View {
     @State private var canGoBack = false
     @State private var canGoForward = false
     @State private var bookmarkController = PlayerBookmarkController()
-    @State private var bundledGenerativePresentationMode:
-        MobileBundledGenerativePresentationMode = .aspectFit
+    @State private var webGenerativePresentationMode:
+        MobileWebGenerativePresentationMode = .aspectFit
     @State private var focusedPagePositionUpdateCoordinator =
         MobilePlayerFocusedPagePositionUpdateCoordinator()
 
@@ -370,7 +370,7 @@ struct MobilePlayerView: View {
                     playbackSession: playbackSession,
                     chrome: chrome,
                     artworkDependencyCache: artworkDependencyCache,
-                    bundledGenerativePresentationMode: bundledGenerativePresentationMode,
+                    webGenerativePresentationMode: webGenerativePresentationMode,
                     onFocusedPagePositionUpdate: handleFocusedPagePositionUpdate,
                     onSettledPagePositionUpdate: handleSettledPagePositionUpdate,
                     onPaginationAttempt: {
@@ -466,7 +466,7 @@ struct MobilePlayerView: View {
         .onDisappear {
             focusedPagePositionUpdateCoordinator.cancelPendingUpdate()
             bookmarkController.stop()
-            bundledGenerativePresentationMode = .aspectFit
+            webGenerativePresentationMode = .aspectFit
         }
         .task {
             guard !isAllowedToHideStatusBar else { return }
@@ -516,10 +516,10 @@ struct MobilePlayerView: View {
                 Divider()
             }
 
-            if canToggleBundledGenerativeFullscreen {
+            if canToggleWebGenerativeFullscreen {
                 Toggle(
                     Strings.viewFullscreen,
-                    isOn: bundledGenerativeFullscreenBinding
+                    isOn: webGenerativeFullscreenBinding
                 )
                 .disabled(chrome.isPlayerContentHiddenForCardTransition)
             }
@@ -532,11 +532,11 @@ struct MobilePlayerView: View {
         .accessibilityLabel(Strings.more)
     }
 
-    private var canToggleBundledGenerativeFullscreen: Bool {
+    private var canToggleWebGenerativeFullscreen: Bool {
         guard let currentPagePosition,
               currentToken.media == nil,
               currentToken.nativeMetalCardRenderKind == nil,
-              TokenGenerator.isBundledWebGenerativeCollection(
+              TokenGenerator.isWebGenerativeCollection(
                 id: currentToken.fullCollectionId
               ) else {
             return false
@@ -547,7 +547,7 @@ struct MobilePlayerView: View {
                     specificCollectionId: currentToken.fullCollectionId,
                     tokenId: currentToken.id
                   ),
-                  let token = TokenGenerator.bundledWebGenerativeToken(
+                  let token = TokenGenerator.webGenerativeToken(
                     specificCollectionId: currentToken.fullCollectionId,
                     tokenIndex: tokenIndex
                   ) else { return false }
@@ -566,14 +566,14 @@ struct MobilePlayerView: View {
             && descriptor.aspectRatio != nil
     }
 
-    private var bundledGenerativeFullscreenBinding: Binding<Bool> {
+    private var webGenerativeFullscreenBinding: Binding<Bool> {
         Binding(
             get: {
-                bundledGenerativePresentationMode == .fullscreen
+                webGenerativePresentationMode == .fullscreen
             },
             set: { isFullscreen in
                 guard !chrome.isPlayerContentHiddenForCardTransition else { return }
-                bundledGenerativePresentationMode = isFullscreen
+                webGenerativePresentationMode = isFullscreen
                     ? .fullscreen
                     : .aspectFit
             }

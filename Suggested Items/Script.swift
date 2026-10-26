@@ -54,11 +54,6 @@ nonisolated struct Script: Sendable {
         )
     }
 
-    var legacyArtBlocksCollectionId: String? {
-        guard usesArtBlocksRenderer else { return nil }
-        return address + "-dev-good-" + String(chainId ?? 1) + "-" + abId
-    }
-
     struct Metadata: Codable, Hashable, Sendable {
         var kind: Kind
         var projectId: String? = nil

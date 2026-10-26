@@ -24,14 +24,14 @@ nonisolated enum TokenGenerator {
     private struct RangedNativeCollection: Sendable {
         let collectionId: String
         let tokenCount: @Sendable () -> Int
-        let tokenAtIndex: @Sendable (Int) -> BundledTokens.Item?
-        let tokenWithID: @Sendable (Int) -> BundledTokens.Item
+        let tokenAtIndex: @Sendable (Int) -> CollectionTokens.Item?
+        let tokenWithID: @Sendable (Int) -> CollectionTokens.Item
 
         var count: Int {
             tokenCount()
         }
 
-        func token(at tokenIndex: Int) -> BundledTokens.Item? {
+        func token(at tokenIndex: Int) -> CollectionTokens.Item? {
             guard tokenIndex >= 0,
                   tokenIndex < count else { return nil }
             return tokenAtIndex(tokenIndex)
@@ -44,7 +44,7 @@ nonisolated enum TokenGenerator {
             return tokenID - 1
         }
 
-        func randomToken(notTokenId: String?) -> BundledTokens.Item? {
+        func randomToken(notTokenId: String?) -> CollectionTokens.Item? {
             let availableCount = count
             guard availableCount > 0 else { return nil }
 
@@ -72,7 +72,7 @@ nonisolated enum TokenGenerator {
         return generativeCollectionIds.contains(id)
     }
 
-    static func isBundledWebGenerativeCollection(id: String) -> Bool {
+    static func isWebGenerativeCollection(id: String) -> Bool {
         guard canGenerate(id: id),
               let metadata = SuggestedItemsService.item(id: id)?.script else {
             return false
@@ -80,11 +80,11 @@ nonisolated enum TokenGenerator {
         return !metadata.kind.isNativeRenderer
     }
 
-    static func bundledWebGenerativeToken(
+    static func webGenerativeToken(
         specificCollectionId: String,
         tokenIndex: Int
-    ) -> BundledTokens.Item? {
-        guard isBundledWebGenerativeCollection(id: specificCollectionId),
+    ) -> CollectionTokens.Item? {
+        guard isWebGenerativeCollection(id: specificCollectionId),
               let collectionData = collectionData(specificCollectionId: specificCollectionId),
               collectionData.tokens.indices.contains(tokenIndex) else {
             return nil
@@ -98,10 +98,12 @@ nonisolated enum TokenGenerator {
         specificCollectionId: String
     ) -> AspectRatioProfile? {
         guard !isRangedNativeCollection(specificCollectionId),
-              let item = generativeItem(specificCollectionId: specificCollectionId) else { return nil }
-        return BundledTokenMetadata.aspectRatioProfile(
-            count: item.bundledTokenCount,
-            isUniform: item.hasUniformAspectRatio,
+              let item = generativeItem(specificCollectionId: specificCollectionId),
+              let count = item.manifestTokenCount,
+              let isUniform = item.hasUniformAspectRatio else { return nil }
+        return CollectionTokenMetadata.aspectRatioProfile(
+            count: count,
+            isUniform: isUniform,
             defaultAspectRatio: item.aspectRatio
         ) {
             collectionData(specificCollectionId: specificCollectionId)?.aspectRatioProfile
@@ -109,18 +111,12 @@ nonisolated enum TokenGenerator {
     }
 
     static func needsArtworkPreparation(collectionId: String) -> Bool {
-        isBundledWebGenerativeCollection(id: collectionId)
+        isWebGenerativeCollection(id: collectionId)
     }
 
     static func usesArtBlocksRenderer(collectionId: String) -> Bool {
         guard canGenerate(id: collectionId) else { return false }
         return SuggestedItemsService.item(id: collectionId)?.script?.renderingProfile == .artBlocks
-    }
-
-    static func legacyArtBlocksCollectionId(collectionId: String) -> String? {
-        guard usesArtBlocksRenderer(collectionId: collectionId),
-              let item = SuggestedItemsService.item(id: collectionId) else { return nil }
-        return item.address + "-dev-good-" + String(item.chainId) + "-" + item.scriptProjectId
     }
 
     static func isCollectionDisabledOnCurrentPlatform(id: String) -> Bool {
@@ -139,10 +135,7 @@ nonisolated enum TokenGenerator {
         if isRangedNativeCollection(specificCollectionId) {
             return activeRangedNativeCollection(specificCollectionId: specificCollectionId)?.count ?? 0
         }
-        guard let item = generativeItem(specificCollectionId: specificCollectionId) else { return 0 }
-        return BundledTokenMetadata.count(item.bundledTokenCount) {
-            collectionData(specificCollectionId: specificCollectionId)?.tokens.count ?? 0
-        }
+        return generativeItem(specificCollectionId: specificCollectionId)?.manifestTokenCount ?? 0
     }
 
     static func tokenIndex(specificCollectionId: String, tokenId: String) -> Int? {
@@ -218,7 +211,7 @@ nonisolated enum TokenGenerator {
     private static func tokenSource(
         specificCollectionId: String,
         tokenIndex: Int
-    ) -> (token: BundledTokens.Item, item: SuggestedItem)? {
+    ) -> (token: CollectionTokens.Item, item: SuggestedItem)? {
         if isRangedNativeCollection(specificCollectionId) {
             guard let collection = activeRangedNativeCollection(
                 specificCollectionId: specificCollectionId
@@ -247,17 +240,17 @@ nonisolated enum TokenGenerator {
 #endif
     }()
 
-    private static func cardNft2Token(at tokenIndex: Int) -> BundledTokens.Item? {
+    private static func cardNft2Token(at tokenIndex: Int) -> CollectionTokens.Item? {
         guard tokenIndex >= 0,
               tokenIndex < cardNft2RangedTokenCount else { return nil }
         return cardNft2Token(id: tokenIndex + 1)
     }
 
-    private static func cardNft2Token(id tokenID: Int) -> BundledTokens.Item {
-        BundledTokens.Item(id: String(tokenID), name: nil, hash: nil)
+    private static func cardNft2Token(id tokenID: Int) -> CollectionTokens.Item {
+        CollectionTokens.Item(id: String(tokenID), name: nil, hash: nil)
     }
 
-    static func prepareCollection(collectionId: String, tokens: BundledTokens) {
+    static func prepareCollection(collectionId: String, tokens: CollectionTokens) {
         guard let item = generativeItem(specificCollectionId: collectionId),
               !isRangedNativeCollection(collectionId),
               cache.withLock({ $0.collectionDataByCollectionId[collectionId] }) == nil else { return }
@@ -282,7 +275,7 @@ nonisolated enum TokenGenerator {
         return SuggestedItemsService.item(id: specificCollectionId)
     }
     
-    private static func generateToken(_ token: BundledTokens.Item, item: SuggestedItem) -> GeneratedToken? {
+    private static func generateToken(_ token: CollectionTokens.Item, item: SuggestedItem) -> GeneratedToken? {
         guard let metadata = item.script else { return nil }
         let renderKind = metadata.kind.generatedTokenRenderKind
         let html: String
@@ -310,7 +303,7 @@ nonisolated enum TokenGenerator {
         return generatedToken
     }
 
-    private static func webURL(item: SuggestedItem, token: BundledTokens.Item) -> URL? {
+    private static func webURL(item: SuggestedItem, token: CollectionTokens.Item) -> URL? {
         if item.chain == .solana {
             return URL(string: "https://explorer.solana.com/address/\(item.address)")
         }
@@ -322,11 +315,11 @@ nonisolated enum TokenGenerator {
 
 nonisolated private struct CollectionTokenData: Sendable {
     let item: SuggestedItem
-    let tokens: [BundledTokens.Item]
+    let tokens: [CollectionTokens.Item]
     let tokenIndicesById: [String: Int]
     let aspectRatioProfile: AspectRatioProfile?
 
-    init(item: SuggestedItem, tokens: [BundledTokens.Item]) {
+    init(item: SuggestedItem, tokens: [CollectionTokens.Item]) {
         self.item = item
         self.tokens = tokens
 

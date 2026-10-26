@@ -114,16 +114,14 @@ extension MobileCollectionBrowserGridModePresentationTests {
 
     func collectionMetadata(
         minimumTokenCount: Int = 4,
-        requiresBundledGenerativeToken: Bool = false
+        requiresWebGenerativeToken: Bool = false
     ) throws -> (
         id: String,
         internalSlug: String
     ) {
         let item = try XCTUnwrap(
             SuggestedItemsService.visibleItems.first { item in
-                guard let internalSlug = item.internalSlug,
-                      !internalSlug.isEmpty,
-                      PlayerCollectionBrowserSupport.isAvailable(
+                guard PlayerCollectionBrowserSupport.isAvailable(
                           forCollectionId: item.id
                       ) else {
                     return false
@@ -136,14 +134,14 @@ extension MobileCollectionBrowserGridModePresentationTests {
                         specificCollectionId: item.id,
                         tokenIndex: 0
                     )
-                    && (!requiresBundledGenerativeToken
-                        || TokenGenerator.bundledWebGenerativeToken(
+                    && (!requiresWebGenerativeToken
+                        || TokenGenerator.webGenerativeToken(
                             specificCollectionId: item.id,
                             tokenIndex: 0
                         ) != nil)
             }
         )
-        return (item.id, try XCTUnwrap(item.internalSlug))
+        return (item.id, item.internalSlug)
     }
 
     func collectionId(internalSlug: String) throws -> String {

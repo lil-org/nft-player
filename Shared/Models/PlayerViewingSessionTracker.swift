@@ -11,10 +11,6 @@ enum PlayerPersistenceUpdates {
 
     private static var pendingUpdate: PendingUpdate?
 
-    static var hasPendingUpdates: Bool {
-        pendingUpdate != nil
-    }
-
     static func enqueue(
         _ operation: @escaping @MainActor @Sendable () async -> Void
     ) {

@@ -86,7 +86,7 @@ nonisolated enum PlayerCollectionBrowserSupport {
 
     static func isAvailable(forCollectionId collectionId: String) -> Bool {
         guard SuggestedItemsService.item(id: collectionId)?.hasThumbnails != false else { return false }
-        return TokenGenerator.isBundledWebGenerativeCollection(id: collectionId)
+        return TokenGenerator.isWebGenerativeCollection(id: collectionId)
             || explicitlySupportedCollectionIds.contains(collectionId)
             || CollectionCatalog.standardThumbsPathsAvailable(
                 specificCollectionId: collectionId

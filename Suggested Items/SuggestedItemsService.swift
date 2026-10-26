@@ -71,7 +71,7 @@ nonisolated enum SuggestedItemsService {
     }
 
     static let bundle = Bundle.main
-    private static let preparedTokens = OSAllocatedUnfairLock(initialState: [String: BundledTokens]())
+    private static let preparedTokens = OSAllocatedUnfairLock(initialState: [String: CollectionTokens]())
 
     static func resourceURL(_ name: String) -> URL? {
         if let alternativeResourceDirectoryURL {
@@ -88,7 +88,7 @@ nonisolated enum SuggestedItemsService {
             result[item.id] = result[item.id] ?? item
         }
         let itemsByResourceName = allItems.reduce(into: [String: SuggestedItem]()) { result, item in
-            result[item.bundledResourceName] = result[item.bundledResourceName] ?? item
+            result[item.resourceName] = result[item.resourceName] ?? item
         }
 
         let artistsBySlug: [String: SuggestedArtist]
@@ -149,7 +149,7 @@ nonisolated enum SuggestedItemsService {
         return artistSlugs.compactMap { snapshot.artistsBySlug[$0] }
     }
     
-    static func cachedTokens(collectionId: String) -> BundledTokens? {
+    static func cachedTokens(collectionId: String) -> CollectionTokens? {
         guard let item = scriptItem(collectionId: collectionId) else { return nil }
         return preparedTokens.withLock { $0[item.id] }
     }
@@ -163,15 +163,15 @@ nonisolated enum SuggestedItemsService {
     static func tokenResourceName(collectionId: String) -> String? {
         guard let item = scriptItem(collectionId: collectionId),
               item.script?.kind != .cardNft2Native else { return nil }
-        return item.bundledResourceName
+        return item.resourceName
     }
 
     @discardableResult
-    static func installTokens(_ data: Data, collectionId: String) throws -> BundledTokens {
+    static func installTokens(_ data: Data, collectionId: String) throws -> CollectionTokens {
         guard let item = scriptItem(collectionId: collectionId) else {
             throw CollectionCatalog.PreparationFailure.unknownCollection
         }
-        let tokens = try BundledTokens(data: data)
+        let tokens = try CollectionTokens(data: data)
         return preparedTokens.withLock { cache in
             if let existing = cache[item.id] { return existing }
             cache[item.id] = tokens

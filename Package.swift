@@ -46,7 +46,7 @@ let package = Package(
             ],
             sources: [
                 "Models/CompactTokenManifest.swift",
-                "Models/BundledMediaResolver.swift",
+                "Models/ArtworkMediaResolver.swift",
                 "Models/CollectionBrowserConfiguration.swift",
                 "Models/CollectionPlatformAvailability.swift",
                 "Models/ArtworkAssetPolicy.swift",

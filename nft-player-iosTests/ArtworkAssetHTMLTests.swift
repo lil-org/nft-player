@@ -7,8 +7,8 @@ nonisolated final class ArtworkAssetHTMLTests: CollectionTokenFixtureTestCase {}
 
 @MainActor
 extension ArtworkAssetHTMLTests {
-    private func token() -> BundledTokens.Item {
-        BundledTokens.Item(id: "0", name: nil, hash: "0x" + String(repeating: "a", count: 64))
+    private func token() -> CollectionTokens.Item {
+        CollectionTokens.Item(id: "0", name: nil, hash: "0x" + String(repeating: "a", count: 64))
     }
 
     private func webView(setup: String = "") -> WKWebView {

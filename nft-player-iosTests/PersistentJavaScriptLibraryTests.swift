@@ -41,13 +41,13 @@ private actor LibraryDownloadProbe {
 extension PersistentJavaScriptLibraryTests {
     private func scripts() throws -> [Script] {
         try SuggestedItemsService.allItems.filter { $0.script != nil }
-            .sorted { $0.bundledResourceName < $1.bundledResourceName }
+            .sorted { $0.resourceName < $1.resourceName }
             .map { try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: $0.id), $0.name) }
     }
 
-    private func token(for script: Script) -> BundledTokens.Item {
+    private func token(for script: Script) -> CollectionTokens.Item {
         SuggestedItemsService.cachedTokens(collectionId: script.id)?.items.first(where: { $0.hash != nil })
-            ?? BundledTokens.Item(id: script.abId + "000000", name: nil, hash: "0x" + String(repeating: "1", count: 64))
+            ?? CollectionTokens.Item(id: script.abId + "000000", name: nil, hash: "0x" + String(repeating: "1", count: 64))
     }
 
     private func directory() throws -> URL {

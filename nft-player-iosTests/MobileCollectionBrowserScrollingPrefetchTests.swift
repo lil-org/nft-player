@@ -1273,7 +1273,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
 
     func testBrowseImageDescriptorsSelectSizedTiersForDenseModes() throws {
         let metadata = try collectionMetadata(
-            requiresBundledGenerativeToken: true
+            requiresWebGenerativeToken: true
         )
         let snapshot = PlayerCollectionBrowseSnapshot(
             collectionId: metadata.id,
@@ -1343,6 +1343,8 @@ extension MobileCollectionBrowserGridModePresentationTests {
                     {
                         "name": "Fixture", "address": "0xfixture", "chainId": 1,
                         "chain": "ethereum", "tokenCount": 1, "artists": [],
+                        "internal_slug": "fixture", "manifestTokenCount": 1,
+                        "hasUniformAspectRatio": true,
                         \(entry.field)
                         "urlPrefix": "\(format.prefix)",
                         "aspectRatio": [1, 1]
@@ -1618,7 +1620,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
 
     func testNineColumnPrefetchReusesCachedHigherQualityThumbnails() throws {
         let metadata = try collectionMetadata(
-            requiresBundledGenerativeToken: true
+            requiresWebGenerativeToken: true
         )
         let snapshot = PlayerCollectionBrowseSnapshot(
             collectionId: metadata.id,

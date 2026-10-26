@@ -159,7 +159,7 @@ struct MacRootView: View {
 struct MacCollectionsScreen: View {
 
     var body: some View {
-        WalletsListView()
+        MacCollectionsView()
             .background(Color(nsColor: .controlBackgroundColor))
     }
 

@@ -66,25 +66,17 @@ nonisolated enum AspectRatioProfile: Hashable, Sendable {
     }
 }
 
-nonisolated enum BundledTokenMetadata {
-    static func count(_ count: Int?, loading fallback: () -> Int) -> Int {
-        if let count, count >= 0 {
-            return count
-        }
-        return fallback()
-    }
-
+nonisolated enum CollectionTokenMetadata {
     static func aspectRatioProfile(
-        count: Int?,
-        isUniform: Bool?,
+        count: Int,
+        isUniform: Bool,
         defaultAspectRatio: AspectRatio?,
         loading fallback: () -> AspectRatioProfile?
     ) -> AspectRatioProfile? {
         if count == 0 {
             return nil
         }
-        if let count, count > 0,
-           isUniform == true,
+        if isUniform,
            let defaultAspectRatio {
             return .uniform(defaultAspectRatio)
         }
@@ -132,7 +124,7 @@ nonisolated struct AspectRatioProfileBuilder: Sendable {
     }
 }
 
-nonisolated struct BundledTokens: Codable, Sendable {
+nonisolated struct CollectionTokens: Codable, Sendable {
     
     struct Item: Codable, Sendable {
         let id: String

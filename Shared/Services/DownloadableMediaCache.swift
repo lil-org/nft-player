@@ -1671,16 +1671,6 @@ final class DownloadableMediaCache {
         )
     }
 
-    nonisolated static func imageDecodeGenerationStartResultsForTesting(
-        invalidateBeforeStart: Bool
-    ) -> [Bool] {
-        let generation = ImageDecodeGeneration()
-        if invalidateBeforeStart {
-            generation.invalidate()
-        }
-        return [generation.beginIfCurrent(), generation.beginIfCurrent()]
-    }
-
     func installDecodedImageForTesting(
         _ image: DownloadableMediaImage,
         for descriptor: CollectionCatalogDownloadableMediaDescriptor,
@@ -2302,13 +2292,6 @@ final class DownloadableMediaCache {
         }
     }
 
-    nonisolated private func diskCachePaths(for descriptor: CollectionCatalogDownloadableMediaDescriptor) -> [String] {
-        layout.diskPaths(for: descriptor)
-    }
-
-    nonisolated private func diskCachePath(for url: URL) -> String {
-        layout.diskPath(for: url)
-    }
 #else
     private func markCachedFileUsed(for _: CollectionCatalogDownloadableMediaDescriptor) {}
     private func retainDiskProtection(
@@ -3070,10 +3053,6 @@ final class DownloadableMediaCache {
 
     private func hasDemandCallbacks(forKey key: String) -> Bool {
         completions[key]?.isEmpty == false || fileCompletions[key]?.isEmpty == false
-    }
-
-    private func hasImageDemandCallbacks(forKey key: String) -> Bool {
-        completions[key]?.isEmpty == false
     }
 
     private func strongestForegroundDecodeRequirement(
@@ -4060,10 +4039,6 @@ final class DownloadableMediaCache {
 
     nonisolated private func fileURL(for descriptor: CollectionCatalogDownloadableMediaDescriptor) -> URL {
         layout.location(for: descriptor).mediaURL
-    }
-
-    nonisolated private func metadataFileURL(for descriptor: CollectionCatalogDownloadableMediaDescriptor) -> URL {
-        layout.location(for: descriptor).metadataURL
     }
 
     nonisolated private func fileNames(for descriptor: CollectionCatalogDownloadableMediaDescriptor) -> [String] {

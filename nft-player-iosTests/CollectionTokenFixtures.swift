@@ -72,14 +72,14 @@ extension CollectionTokenColdPreparationTests {
     private struct Fixture {
         let item: SuggestedItem
         let data: Data
-        let tokens: BundledTokens
+        let tokens: CollectionTokens
     }
 
     private func fixture(_ slug: String = "fidenza") throws -> Fixture {
         let item = try XCTUnwrap(SuggestedItemsService.item(resourceName: slug))
         let url = try XCTUnwrap(CollectionTokenFixtures.url(collectionId: item.id))
         let data = try Data(contentsOf: url)
-        return Fixture(item: item, data: data, tokens: try BundledTokens(data: data))
+        return Fixture(item: item, data: data, tokens: try CollectionTokens(data: data))
     }
 
     private func restore(_ fixture: Fixture) {
@@ -102,7 +102,7 @@ extension CollectionTokenColdPreparationTests {
             XCTAssertEqual(token.fullCollectionId, fixture.item.id)
             XCTAssertEqual(token.id, expected.id)
             XCTAssertEqual(CollectionCatalog.tokenIndex(specificCollectionId: fixture.item.id, tokenId: expected.id), index)
-            let generated = try XCTUnwrap(TokenGenerator.bundledWebGenerativeToken(specificCollectionId: fixture.item.id, tokenIndex: index))
+            let generated = try XCTUnwrap(TokenGenerator.webGenerativeToken(specificCollectionId: fixture.item.id, tokenIndex: index))
             XCTAssertEqual(generated.hash, expected.hash)
             XCTAssertNotNil(generated.hash)
             let media = try XCTUnwrap(CollectionCatalog.collectionBrowseThumbnailDescriptor(specificCollectionId: fixture.item.id, tokenIndex: index))

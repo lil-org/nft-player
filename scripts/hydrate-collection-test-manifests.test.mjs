@@ -10,7 +10,7 @@ async function fixture(t) {
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const itemsPath = path.join(directory, "items.json");
   const outputDirectory = path.join(directory, "CollectionManifests");
-  await fs.writeFile(itemsPath, JSON.stringify([{ internal_slug: "sample", bundledTokenCount: 2 }]));
+  await fs.writeFile(itemsPath, JSON.stringify([{ internal_slug: "sample", manifestTokenCount: 2 }]));
   return { itemsPath, outputDirectory };
 }
 
@@ -18,11 +18,11 @@ const validData = Buffer.from('{"version":2,"count":2,"firstId":"1"}\n');
 
 test("descriptors use collection slugs and omit the native ranged collection", () => {
   assert.deepEqual(collectionManifestDescriptors([
-    { internal_slug: "fidenza", bundledTokenCount: 1 },
+    { internal_slug: "fidenza", manifestTokenCount: 1 },
     { internal_slug: "card_nft_2", script: { kind: "native.card-nft-2" } },
   ]), [{ slug: "fidenza", filename: "fidenza.json", url: "https://cdn.lil.org/player/collections/fidenza.json", count: 1 }]);
-  for (const items of [{}, [{ internal_slug: "../sample", bundledTokenCount: 1 }],
-    [{ internal_slug: "sample" }], [{ internal_slug: "sample", bundledTokenCount: -1 }]]) {
+  for (const items of [{}, [{ internal_slug: "../sample", manifestTokenCount: 1 }],
+    [{ internal_slug: "sample" }], [{ internal_slug: "sample", manifestTokenCount: -1 }]]) {
     assert.throws(() => collectionManifestDescriptors(items));
   }
 });

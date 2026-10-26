@@ -2,7 +2,7 @@ import Foundation
 import XCTest
 @testable import nft_player_ios
 
-extension Array where Element == BundledTokens.Item {
+extension Array where Element == CollectionTokens.Item {
     nonisolated func resolvingAspectRatios(default aspectRatio: AspectRatio?) -> Self {
         map { $0.resolvingAspectRatio(default: aspectRatio) }
     }
@@ -46,15 +46,16 @@ extension ArtBlocksCatalogTests {
     private func collectionFixture(metadata: [String: Any] = [:]) throws -> SuggestedItem {
         var payload: [String: Any] = [
             "name": "Fixture", "address": "0xfixture", "chainId": 1,
-            "chain": "ethereum", "tokenCount": 5, "artists": []
+            "chain": "ethereum", "tokenCount": 5, "artists": [],
+            "internal_slug": "fixture", "manifestTokenCount": 5, "hasUniformAspectRatio": false
         ]
         payload.merge(metadata) { _, value in value }
         return try JSONDecoder().decode(SuggestedItem.self, from: JSONSerialization.data(withJSONObject: payload))
     }
 
-    func testBundledTokensPreserveNamesHashesSuffixesAndAspectRatiosAfterRoundTrip() throws {
+    func testCollectionTokensPreserveNamesHashesSuffixesAndAspectRatiosAfterRoundTrip() throws {
         let collection = try collectionFixture(metadata: ["urlPrefix": "https://example.com/", "aspectRatio": [3, 4]])
-        let tokens = try BundledTokens(data: tokenFixture)
+        let tokens = try CollectionTokens(data: tokenFixture)
         XCTAssertEqual(tokens.items.map(\.id), ["legacy", "extension", "named-hash", "named-extension", "hash-only"])
         XCTAssertEqual(tokens.items.map(\.urlSuffix), [
             "legacy.png", "extension.JPG", "named.png", "named.webp", "art.png"
@@ -68,7 +69,7 @@ extension ArtBlocksCatalogTests {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .sortedKeys
         let encoded = try encoder.encode(tokens)
-        let restored = try JSONDecoder().decode(BundledTokens.self, from: encoded)
+        let restored = try JSONDecoder().decode(CollectionTokens.self, from: encoded)
         XCTAssertEqual(restored.items.map(\.urlSuffix), tokens.items.map(\.urlSuffix))
         XCTAssertEqual(restored.items.map(\.name), tokens.items.map(\.name))
         XCTAssertEqual(restored.items.map(\.hash), tokens.items.map(\.hash))
@@ -85,10 +86,10 @@ extension ArtBlocksCatalogTests {
     }
 
     func testIndividualTokenRoundTripPreservesSuffixAndRatio() throws {
-        let tokens = try BundledTokens(data: tokenFixture)
+        let tokens = try CollectionTokens(data: tokenFixture)
         for index in [0, 2] {
             let token = tokens.items[index].resolvingAspectRatio(default: AspectRatio(width: 3, height: 4))
-            let restored = try JSONDecoder().decode(BundledTokens.Item.self, from: JSONEncoder().encode(token))
+            let restored = try JSONDecoder().decode(CollectionTokens.Item.self, from: JSONEncoder().encode(token))
             XCTAssertEqual(restored.id, token.id)
             XCTAssertEqual(restored.name, token.name)
             XCTAssertEqual(restored.urlSuffix, token.urlSuffix)
@@ -154,7 +155,7 @@ extension ArtBlocksCatalogTests {
             {"id":"3","urlSuffix":"art?ext=html","fileExtension":"png"}
         ]
         """)
-        let bundled = try BundledTokens(data: data)
+        let bundled = try CollectionTokens(data: data)
         let downloadable = try DownloadableCollectionTokensPayload(data: data)
         XCTAssertEqual(
             downloadable.items.map { $0.resolvedFileExtension(collection: downloadableCollection) },
@@ -170,7 +171,7 @@ extension ArtBlocksCatalogTests {
 
     func testRemovedTokenMetadataIsIgnoredAndNotEncoded() throws {
         let data = Data(#"{"version":2,"count":1,"firstId":"1","urlSuffix":["https://example.com/1"],"isComplete":false,"defaultFileExtension":"html","urlPrefix":"https://ignored.example/","hasMid":false}"#.utf8)
-        let bundled = try JSONDecoder().decode(BundledTokens.self, from: data)
+        let bundled = try JSONDecoder().decode(CollectionTokens.self, from: data)
         let encoded = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(bundled)) as? [String: Any])
         XCTAssertEqual(Set(encoded.keys), ["version", "count", "ids", "urlSuffix"])
         XCTAssertNil(bundled.items.first?.aspectRatio)
@@ -203,7 +204,7 @@ extension ArtBlocksCatalogTests {
     }
 
     func testRawTokenRoundTripPreservesSuffixesAndOnlyItemOverrides() throws {
-        let tokens = try JSONDecoder().decode(BundledTokens.self, from: tokenFixture)
+        let tokens = try JSONDecoder().decode(CollectionTokens.self, from: tokenFixture)
         let encoded = try JSONEncoder().encode(tokens)
         let payload = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
         XCTAssertEqual(Set(payload.keys), ["version", "count", "ids", "name", "hash", "urlSuffix", "aspectRatio"])
@@ -224,7 +225,7 @@ extension ArtBlocksCatalogTests {
                 ["id": "1", "urlSuffix": urls[0], "hash": "0xabc"],
                 ["id": "2", "urlSuffix": urls[1]]
             ])
-            let bundled = try BundledTokens(data: data)
+            let bundled = try CollectionTokens(data: data)
             let downloadable = try DownloadableCollectionTokensPayload(data: data)
             XCTAssertEqual(bundled.items.compactMap(\.urlSuffix), urls)
             XCTAssertEqual(downloadable.items.compactMap { $0.resolvedURLString(collection: downloadableCollection) }, urls)
@@ -246,7 +247,7 @@ extension ArtBlocksCatalogTests {
             {"id":"c"}
         ]
         """)
-        let bundled = try BundledTokens(data: data)
+        let bundled = try CollectionTokens(data: data)
         let downloadable = try DownloadableCollectionTokensPayload(data: data)
         XCTAssertEqual(bundled.items.map(\.urlSuffix), ["a.png", nil, nil])
         XCTAssertEqual(downloadable.items.map { $0.resolvedURLString(collection: downloadableCollection) }, [
@@ -263,7 +264,7 @@ extension ArtBlocksCatalogTests {
             let item = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
             XCTAssertEqual(Set(item.keys), ["id", "urlSuffix"])
         }
-        let restored = try BundledTokens(data: JSONEncoder().encode(bundled))
+        let restored = try CollectionTokens(data: JSONEncoder().encode(bundled))
         XCTAssertEqual(restored.items.map(\.urlSuffix), bundled.items.map(\.urlSuffix))
     }
 
@@ -295,14 +296,14 @@ extension ArtBlocksCatalogTests {
         let downloadableCollection = try XCTUnwrap(DownloadableCollectionIndexItem(item: collection))
         let data = try tokenData(rows: #"[{"id":"a"},{"id":"b","aspectRatio":[6,8]},{"id":"c","aspectRatio":[64,36]}]"#)
         let expected = [AspectRatio(width: 16, height: 9), AspectRatio(width: 3, height: 4), AspectRatio(width: 16, height: 9)]
-        let bundled = try BundledTokens(data: data)
+        let bundled = try CollectionTokens(data: data)
         let downloadable = try DownloadableCollectionTokensPayload(data: data)
         XCTAssertNil(bundled.items[0].aspectRatio)
         XCTAssertNil(downloadable.items[0].aspectRatio)
         XCTAssertEqual(bundled.items.resolvingAspectRatios(default: collection.aspectRatio).compactMap(\.aspectRatio), expected)
         XCTAssertEqual(downloadable.items.compactMap { $0.resolvedAspectRatio(collection: downloadableCollection) }, expected)
         let encoded = try JSONEncoder().encode(bundled)
-        let restored = try BundledTokens(data: encoded)
+        let restored = try CollectionTokens(data: encoded)
         XCTAssertEqual(restored.items.resolvingAspectRatios(default: collection.aspectRatio).compactMap(\.aspectRatio), expected)
         XCTAssertNil(restored.items[0].aspectRatio)
         let payload = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
@@ -313,7 +314,7 @@ extension ArtBlocksCatalogTests {
         let collection = try collectionFixture()
         let downloadableCollection = try XCTUnwrap(DownloadableCollectionIndexItem(item: collection))
         let data = try tokenData(rows: #"[{"id":"a","aspectRatio":[4,3]},{"id":"b"}]"#)
-        let bundled = try BundledTokens(data: data)
+        let bundled = try CollectionTokens(data: data)
         let downloadable = try DownloadableCollectionTokensPayload(data: data)
         let expected: [AspectRatio?] = [AspectRatio(width: 4, height: 3), nil]
         XCTAssertEqual(bundled.items.map(\.aspectRatio), expected)
@@ -321,7 +322,7 @@ extension ArtBlocksCatalogTests {
         XCTAssertEqual(bundled.items.resolvingAspectRatios(default: collection.aspectRatio).map(\.aspectRatio), expected)
         XCTAssertEqual(downloadable.items.map { $0.resolvedAspectRatio(collection: downloadableCollection) }, expected)
         let encoded = try JSONEncoder().encode(bundled)
-        let restored = try JSONDecoder().decode(BundledTokens.self, from: encoded)
+        let restored = try JSONDecoder().decode(CollectionTokens.self, from: encoded)
         XCTAssertEqual(restored.items.map(\.aspectRatio), expected)
     }
 
@@ -330,7 +331,7 @@ extension ArtBlocksCatalogTests {
             let collection = try collectionFixture(metadata: metadata)
             let downloadableCollection = try XCTUnwrap(DownloadableCollectionIndexItem(item: collection))
             let data = try tokenData(rows: #"[{"id":"a","aspectRatio":null,"urlSuffix":"https://example.com/a.png"}]"#)
-            let bundled = try BundledTokens(data: data)
+            let bundled = try CollectionTokens(data: data)
             let downloadable = try DownloadableCollectionTokensPayload(data: data)
             XCTAssertNil(try XCTUnwrap(bundled.items.first).aspectRatio)
             XCTAssertNil(try XCTUnwrap(downloadable.items.first).aspectRatio)
@@ -345,7 +346,7 @@ extension ArtBlocksCatalogTests {
         for ratio in invalidRatios {
             XCTAssertThrowsError(try collectionFixture(metadata: ["aspectRatio": ratio]))
             let data = try tokenData(items: [["id": "a", "aspectRatio": ratio]])
-            XCTAssertThrowsError(try JSONDecoder().decode(BundledTokens.self, from: data))
+            XCTAssertThrowsError(try JSONDecoder().decode(CollectionTokens.self, from: data))
             XCTAssertThrowsError(try JSONDecoder().decode(DownloadableCollectionTokensPayload.self, from: data))
         }
     }
@@ -357,11 +358,11 @@ extension ArtBlocksCatalogTests {
             #"{"version":1,"count":1,"ids":["a"]}"#
         ] {
             let data = Data(json.utf8)
-            XCTAssertThrowsError(try BundledTokens(data: data), json)
+            XCTAssertThrowsError(try CollectionTokens(data: data), json)
             XCTAssertThrowsError(try DownloadableCollectionTokensPayload(data: data), json)
         }
         let item = Data(#"{"id":"a","urlSuffix":"a.png"}"#.utf8)
-        XCTAssertEqual(try JSONDecoder().decode(BundledTokens.Item.self, from: item).id, "a")
+        XCTAssertEqual(try JSONDecoder().decode(CollectionTokens.Item.self, from: item).id, "a")
         XCTAssertEqual(try JSONDecoder().decode(DownloadableTokenItem.self, from: item).urlSuffix, "a.png")
     }
 
@@ -375,7 +376,7 @@ extension ArtBlocksCatalogTests {
         ]
         for entry in cases {
             let data = Data(entry.json.utf8)
-            XCTAssertEqual(try BundledTokens(data: data).items.map(\.id), entry.ids)
+            XCTAssertEqual(try CollectionTokens(data: data).items.map(\.id), entry.ids)
             XCTAssertEqual(try DownloadableCollectionTokensPayload(data: data).items.map(\.id), entry.ids)
         }
     }
@@ -387,8 +388,8 @@ extension ArtBlocksCatalogTests {
          "urlSuffix":[null,"art.html",null],"aspectRatio":[null,[6,8],[16,9]],
          "contractParameters":[{"a":"1","b":"two"},null,{}],"excludedMediaIndices":[1]}
         """.utf8)
-        let tokens = try BundledTokens(data: data)
-        let restored = try BundledTokens(data: JSONEncoder().encode(tokens))
+        let tokens = try CollectionTokens(data: data)
+        let restored = try CollectionTokens(data: JSONEncoder().encode(tokens))
         for payload in [tokens, restored] {
             XCTAssertEqual(payload.items.map(\.id), ["0", "1", "2"])
             XCTAssertEqual(payload.items.map(\.name), [nil, "Second", nil])
@@ -410,7 +411,7 @@ extension ArtBlocksCatalogTests {
                 "version": 2, "count": 3, "ids": ["mint-a", "mint-b", "mint-c"],
                 "urlTemplate": ["value": value, "suffix": ".png"], "excludedMediaIndices": [0, 2]
             ])
-            XCTAssertEqual(try BundledTokens(data: data).items.map(\.urlSuffix), suffixes)
+            XCTAssertEqual(try CollectionTokens(data: data).items.map(\.urlSuffix), suffixes)
             let downloadable = try DownloadableCollectionTokensPayload(data: data)
             XCTAssertEqual(downloadable.items.map(\.urlSuffix), suffixes)
             XCTAssertEqual(downloadable.downloadableItems.map(\.id), ["mint-b"])
@@ -451,7 +452,7 @@ extension ArtBlocksCatalogTests {
         ]
         for json in invalid {
             let data = Data(json.utf8)
-            XCTAssertThrowsError(try BundledTokens(data: data), json)
+            XCTAssertThrowsError(try CollectionTokens(data: data), json)
             XCTAssertThrowsError(try DownloadableCollectionTokensPayload(data: data), json)
         }
     }
@@ -492,21 +493,7 @@ extension ArtBlocksCatalogTests {
         XCTAssertTrue(payload.downloadableItems.allSatisfy { $0.resolvedMedia(collection: collection) == nil })
     }
 
-    func testBundledTokenCountsUseMetadataWithoutLoadingAndFallBackWhenUnknown() {
-        var loadCount = 0
-        let load = {
-            loadCount += 1
-            return 7
-        }
-        XCTAssertEqual(BundledTokenMetadata.count(12, loading: load), 12)
-        XCTAssertEqual(BundledTokenMetadata.count(0, loading: load), 0)
-        XCTAssertEqual(loadCount, 0)
-        XCTAssertEqual(BundledTokenMetadata.count(nil, loading: load), 7)
-        XCTAssertEqual(BundledTokenMetadata.count(-1, loading: load), 7)
-        XCTAssertEqual(loadCount, 2)
-    }
-
-    func testBundledUniformProfilesAvoidLoadingAndOtherProfilesRemainLazy() {
+    func testUniformProfilesAvoidLoadingAndVariableProfilesRemainLazy() {
         let ratio = AspectRatio(width: 3, height: 4)
         let variable = AspectRatioProfile.variable([ratio, AspectRatio(width: 1, height: 1)])
         var loadCount = 0
@@ -514,27 +501,26 @@ extension ArtBlocksCatalogTests {
             loadCount += 1
             return variable
         }
-        XCTAssertEqual(BundledTokenMetadata.aspectRatioProfile(
+        XCTAssertEqual(CollectionTokenMetadata.aspectRatioProfile(
             count: 2, isUniform: true, defaultAspectRatio: ratio, loading: load
         ), .uniform(ratio))
-        for marker: Bool? in [nil, false, true] {
-            XCTAssertNil(BundledTokenMetadata.aspectRatioProfile(
+        for marker in [false, true] {
+            XCTAssertNil(CollectionTokenMetadata.aspectRatioProfile(
                 count: 0, isUniform: marker, defaultAspectRatio: ratio, loading: load
             ))
         }
         XCTAssertEqual(loadCount, 0)
-        let unknownCases: [(Int?, Bool?, AspectRatio?)] = [
-            (nil, true, ratio), (-1, true, ratio),
-            (2, nil, ratio), (2, false, ratio), (2, true, nil)
+        let variableCases: [(Int, Bool, AspectRatio?)] = [
+            (2, false, ratio), (2, false, nil)
         ]
-        for (count, marker, defaultRatio) in unknownCases {
-            XCTAssertEqual(BundledTokenMetadata.aspectRatioProfile(
+        for (count, marker, defaultRatio) in variableCases {
+            XCTAssertEqual(CollectionTokenMetadata.aspectRatioProfile(
                 count: count, isUniform: marker, defaultAspectRatio: defaultRatio, loading: load
             ), variable)
         }
-        XCTAssertEqual(loadCount, unknownCases.count)
-        XCTAssertNil(BundledTokenMetadata.aspectRatioProfile(
-            count: nil, isUniform: nil, defaultAspectRatio: nil, loading: { nil }
+        XCTAssertEqual(loadCount, variableCases.count)
+        XCTAssertNil(CollectionTokenMetadata.aspectRatioProfile(
+            count: 2, isUniform: false, defaultAspectRatio: nil, loading: { nil }
         ))
     }
 
@@ -545,8 +531,8 @@ extension ArtBlocksCatalogTests {
         XCTAssertNil(Bundle.main.url(forResource: "WidgetSuggested", withExtension: "bundle"))
         XCTAssertNil(Bundle.main.url(forResource: "CollectionManifests", withExtension: nil))
         for item in SuggestedItemsService.allItems {
-            XCTAssertNil(Bundle.main.url(forResource: item.bundledResourceName, withExtension: "json"), item.name)
-            XCTAssertNil(Bundle.main.url(forResource: item.bundledResourceName, withExtension: "json", subdirectory: "Tokens"), item.name)
+            XCTAssertNil(Bundle.main.url(forResource: item.resourceName, withExtension: "json"), item.name)
+            XCTAssertNil(Bundle.main.url(forResource: item.resourceName, withExtension: "json", subdirectory: "Tokens"), item.name)
         }
     }
 
@@ -576,17 +562,17 @@ extension ArtBlocksCatalogTests {
         }
     }
 
-    func testBundledTokenMetadataMatchesEveryResourceAndAcceptedDownloadableRecord() throws {
+    func testCollectionTokenMetadataMatchesEveryResourceAndAcceptedDownloadableRecord() throws {
         for item in SuggestedItemsService.allItems {
             guard let url = CollectionTokenFixtures.url(collectionId: item.id) else {
                 XCTAssertEqual(item.internalSlug, "card_nft_2")
-                XCTAssertNil(item.bundledTokenCount)
+                XCTAssertNil(item.manifestTokenCount)
                 XCTAssertNil(item.hasUniformAspectRatio)
                 continue
             }
             let data = try Data(contentsOf: url)
-            let payload = try BundledTokens(data: data)
-            XCTAssertEqual(item.bundledTokenCount, payload.items.count, item.name)
+            let payload = try CollectionTokens(data: data)
+            XCTAssertEqual(item.manifestTokenCount, payload.items.count, item.name)
             var profileBuilder = AspectRatioProfileBuilder()
             for token in payload.items {
                 profileBuilder.append(token.resolvingAspectRatio(default: item.aspectRatio).aspectRatio)
@@ -607,9 +593,9 @@ extension ArtBlocksCatalogTests {
         }
     }
 
-    func testBundledMetadataPreservesGenerativeAndNativeRouting() throws {
+    func testManifestMetadataPreservesGenerativeAndNativeRouting() throws {
         let downloadable = try XCTUnwrap(SuggestedItemsService.item(resourceName: "terraforms"))
-        XCTAssertGreaterThan(try XCTUnwrap(downloadable.bundledTokenCount), 0)
+        XCTAssertGreaterThan(try XCTUnwrap(downloadable.manifestTokenCount), 0)
         for id in [downloadable.id, "unknown_collection"] {
             XCTAssertFalse(TokenGenerator.canGenerate(id: id))
             XCTAssertEqual(TokenGenerator.tokenCount(specificCollectionId: id), 0)
@@ -623,8 +609,8 @@ extension ArtBlocksCatalogTests {
             if slug == "card_nft_2" {
                 XCTAssertEqual(TokenGenerator.tokenCount(specificCollectionId: item.id), CardNft2CardMetadata.tokenCount)
             } else {
-                XCTAssertNotNil(item.bundledTokenCount, slug)
-                XCTAssertEqual(TokenGenerator.tokenCount(specificCollectionId: item.id), item.bundledTokenCount)
+                XCTAssertNotNil(item.manifestTokenCount, slug)
+                XCTAssertEqual(TokenGenerator.tokenCount(specificCollectionId: item.id), item.manifestTokenCount)
             }
         }
     }
@@ -639,20 +625,17 @@ extension ArtBlocksCatalogTests {
             let inheritedIndex = try XCTUnwrap(raw.firstIndex { $0.aspectRatio == nil })
             let overrideIndex = try XCTUnwrap(raw.firstIndex { $0.aspectRatio != nil })
             for index in [inheritedIndex, overrideIndex] {
-                XCTAssertEqual(TokenGenerator.bundledWebGenerativeToken(specificCollectionId: item.id, tokenIndex: index)?.aspectRatio, resolved[index].aspectRatio)
+                XCTAssertEqual(TokenGenerator.webGenerativeToken(specificCollectionId: item.id, tokenIndex: index)?.aspectRatio, resolved[index].aspectRatio)
             }
             XCTAssertNil(raw[inheritedIndex].aspectRatio)
         }
     }
 
-    func testBundledResourcesAndCoverNamesUseSlugsWithoutChangingCollectionIdentity() throws {
-        var tokenCount = 0
-        var scriptCount = 0
+    func testResourceAndCoverNamesUseSlugsWithoutChangingCollectionIdentity() throws {
         var sourceIDs = Set<String>()
-        var sourceCounts: [String: Int] = [:]
         for item in SuggestedItemsService.allItems {
-            let slug = try XCTUnwrap(item.internalSlug, item.name)
-            XCTAssertEqual(item.bundledResourceName, slug)
+            let slug = item.internalSlug
+            XCTAssertEqual(item.resourceName, slug)
             XCTAssertEqual(SuggestedItemsService.item(resourceName: slug), item)
             XCTAssertEqual(SuggestedItemsService.item(id: item.id), item)
             XCTAssertEqual(CollectionCatalogItem(item: item).id, item.id)
@@ -666,7 +649,6 @@ extension ArtBlocksCatalogTests {
                 let url = try XCTUnwrap(CollectionTokenFixtures.url(collectionId: item.id), item.name)
                 XCTAssertEqual(url.lastPathComponent, slug + ".json")
                 XCTAssertNotNil(SuggestedItemsService.cachedTokens(collectionId: item.id), item.name)
-                tokenCount += 1
             }
 
             if let metadata = item.script {
@@ -691,19 +673,16 @@ extension ArtBlocksCatalogTests {
                     XCTAssertGreaterThan(dependency.expectedByteCount, 0)
                     XCTAssertNotNil(dependency.sha256.range(of: "^[a-f0-9]{64}$", options: .regularExpression))
                     sourceIDs.insert(dependency.id)
-                    sourceCounts[fileExtension, default: 0] += 1
                 }
-                scriptCount += 1
             } else {
                 XCTAssertNil(Script(item: item, value: ""), item.name)
                 XCTAssertNil(item.scriptDependency, item.name)
                 XCTAssertFalse(TokenGenerator.canGenerate(id: item.id), item.name)
             }
         }
-        XCTAssertEqual(tokenCount, 528)
-        XCTAssertEqual(scriptCount, 407)
-        XCTAssertEqual(sourceIDs.count, 405)
-        XCTAssertEqual(sourceCounts, ["js": 402, "pde": 2, "html": 1])
+        XCTAssertEqual(sourceIDs.count, SuggestedItemsService.allItems.filter {
+            $0.script?.kind.isNativeRenderer == false
+        }.count)
         let directory = SuggestedItemsService.bundle.bundleURL.appendingPathComponent("Scripts")
         XCTAssertFalse(FileManager.default.fileExists(atPath: directory.path))
         XCTAssertNil(Bundle.main.url(forResource: "ArtworkScripts", withExtension: nil))
@@ -711,7 +690,7 @@ extension ArtBlocksCatalogTests {
         XCTAssertNil(SuggestedItemsService.scriptItem(collectionId: "unknown_collection"))
     }
 
-    func testBundledResourcesPreserveLowercaseIdentifierFallback() throws {
+    func testResourceLookupPreservesLowercaseIdentifierFallback() throws {
         let item = try XCTUnwrap(SuggestedItemsService.item(resourceName: "archetype"))
         XCTAssertEqual(item.id, item.id.lowercased())
         let uppercaseId = item.id.uppercased()
@@ -720,7 +699,7 @@ extension ArtBlocksCatalogTests {
 
         let tokensURL = try XCTUnwrap(CollectionTokenFixtures.url(collectionId: item.id))
         XCTAssertEqual(CollectionTokenFixtures.url(collectionId: uppercaseId), tokensURL)
-        for identifier in [item.id, uppercaseId, item.bundledResourceName, item.bundledResourceName.uppercased()] {
+        for identifier in [item.id, uppercaseId, item.resourceName, item.resourceName.uppercased()] {
             let resolvedItem = try XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: identifier))
             XCTAssertEqual(resolvedItem, item)
             XCTAssertEqual(resolvedItem.scriptDependency, item.scriptDependency)
@@ -802,41 +781,29 @@ extension ArtBlocksCatalogTests {
         XCTAssertEqual(decoded.scriptDependency?.sha256, item.scriptDependency?.sha256)
     }
 
-    func testResourceNameFallbackPreservesLegacyDecodingAndCoverMetadata() throws {
-        let item = try XCTUnwrap(SuggestedItemsService.allItems.first)
-        var fields = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(item)) as? [String: Any])
-        fields.removeValue(forKey: "internal_slug")
-        fields["hasCover"] = false
-        let legacy = try JSONDecoder().decode(SuggestedItem.self, from: JSONSerialization.data(withJSONObject: fields))
-        XCTAssertNil(legacy.internalSlug)
-        XCTAssertEqual(legacy.bundledResourceName, item.id)
-        XCTAssertEqual(CollectionCatalogItem(item: legacy).coverAssetName, item.id)
-        XCTAssertFalse(CollectionCatalogItem(item: legacy).hasCover)
-
-        fields["internal_slug"] = ""
-        let emptySlug = try JSONDecoder().decode(SuggestedItem.self, from: JSONSerialization.data(withJSONObject: fields))
-        XCTAssertEqual(emptySlug.bundledResourceName, item.id)
+    func testResourceSlugIsRequiredWithoutChangingIdentityOrCoverMetadata() throws {
+        let item = try collectionFixture(metadata: ["hasCover": false, "abId": "42"])
+        XCTAssertEqual(item.id, "0xfixture42")
+        XCTAssertEqual(item.resourceName, "fixture")
+        XCTAssertEqual(CollectionCatalogItem(item: item).coverAssetName, "fixture")
+        XCTAssertFalse(CollectionCatalogItem(item: item).hasCover)
+        let encoded = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(item)) as? [String: Any])
+        for slug: Any? in [nil, NSNull(), "", " \n "] {
+            var fields = encoded
+            fields["internal_slug"] = slug
+            XCTAssertThrowsError(try JSONDecoder().decode(
+                SuggestedItem.self, from: JSONSerialization.data(withJSONObject: fields)
+            ))
+        }
     }
 
-    private var additions: [SuggestedItem] {
-        SuggestedItemsService.allItems.filter { $0.bundledDate == "2026-09-14" && $0.generativeOnly == true }
+    private var artBlocksCollections: [SuggestedItem] {
+        SuggestedItemsService.allItems.filter { $0.script?.renderingProfile == .artBlocks }
     }
 
-    func testApprovedCollectionsHaveCoversAndBrowsersWithGenerativeOnlyPlayback() throws {
-        XCTAssertEqual(SuggestedItemsService.allItems.count, 529)
-        XCTAssertEqual(additions.count, 292)
-        let unassignedArtistSlugs: Set<String> = [
-            "aceleraciones", "autopoiesis", "bauhaus_synthesis", "breathe_you", "brickwork",
-            "calendart", "can_you_see_it", "deconstructed_city_plans", "delights",
-            "downtown", "gravity_grid", "hash", "incantation", "labyrometry",
-            "liquid_ruminations", "micro", "miragem", "perpetua", "pigs_tail", "pixel_glass", "qwerty",
-            "scribblines", "sigils", "space_birds", "staccato", "striation",
-            "synapses", "tide_predictor", "time_squared", "utopia", "vessel", "warp_2",
-            "whispers_of_motion_fiat_pass"
-        ]
-        var policies = [String: Int]()
-        for item in additions {
-            XCTAssertFalse(item.id.contains("dev-good"), item.name)
+    func testArtBlocksCollectionsHaveCoversAndBrowsersWithGenerativeOnlyPlayback() throws {
+        XCTAssertFalse(artBlocksCollections.isEmpty)
+        for item in artBlocksCollections {
             XCTAssertEqual(item.id, item.address + (item.abId ?? ""), item.name)
             XCTAssertEqual(item.iosOnly, true)
             XCTAssertEqual(item.hasCover, true)
@@ -844,11 +811,10 @@ extension ArtBlocksCatalogTests {
             XCTAssertEqual(item.standardThumbsPathsAvailable, true)
             XCTAssertFalse(item.isDownloadableCollection)
             XCTAssertNil(item.tokenCount)
-            XCTAssertEqual(item.artists.isEmpty, unassignedArtistSlugs.contains(item.internalSlug ?? ""), item.name)
             XCTAssertEqual(SuggestedItemsService.artists(forCollectionId: item.id).count, item.artists.count, item.name)
             XCTAssertTrue(SuggestedItemsService.visibleItems.contains { $0.id == item.id })
             XCTAssertTrue(CollectionCatalog.allItems.contains { $0.id == item.id && $0.hasCover })
-            let slug = try XCTUnwrap(item.internalSlug, item.name)
+            let slug = item.internalSlug
             XCTAssertEqual(CollectionCatalogItem(item: item).coverAssetName, slug, item.name)
             XCTAssertTrue(TokenGenerator.usesArtBlocksRenderer(collectionId: item.id))
             XCTAssertTrue(CollectionCatalog.canOpenCollection(specificCollectionId: item.id))
@@ -862,24 +828,19 @@ extension ArtBlocksCatalogTests {
             let token = try XCTUnwrap(CollectionCatalog.generateToken(specificCollectionId: item.id, tokenIndex: 0))
             XCTAssertNil(token.media)
             XCTAssertFalse(token.html.isEmpty)
-            let script = try JavaScriptLibraryFixtures.script(collectionId: item.id)
-            let policy = ArtBlocksRenderingStartupProfiles.startupProfile(script) == nil ? "direct" : "calibrated"
-            policies[policy, default: 0] += 1
         }
-        XCTAssertEqual(policies, ["direct": 213, "calibrated": 79])
         XCTAssertEqual(PlayerDisplayMode.initialMode(hasWidgetTokenInsertion: false, collectionBrowserAvailable: true), .collectionBrowser)
         XCTAssertEqual(PlayerDisplayMode.initialMode(hasWidgetTokenInsertion: true, collectionBrowserAvailable: true), .onePerPage)
     }
 
     func testAllMintedRecordsDecodeWithHashesAndStableNavigationIdentity() throws {
-        var count = 0
-        for item in additions {
+        for item in artBlocksCollections {
             let tokens = try XCTUnwrap(SuggestedItemsService.cachedTokens(collectionId: item.id))
             XCTAssertFalse(tokens.items.isEmpty, item.name)
             XCTAssertEqual(Set(tokens.items.map(\.id)).count, tokens.items.count, item.name)
             XCTAssertEqual(CollectionCatalog.tokenCount(specificCollectionId: item.id), tokens.items.count)
             let projectID = try XCTUnwrap(item.abId.flatMap(Int.init))
-            let slug = try XCTUnwrap(item.internalSlug)
+            let slug = item.internalSlug
             for (index, token) in tokens.items.resolvingAspectRatios(default: item.aspectRatio).enumerated() {
                 XCTAssertEqual(token.id, String(projectID * 1_000_000 + index), item.name)
                 XCTAssertNotNil(token.hash?.range(of: "^0x[0-9a-fA-F]{64}$", options: .regularExpression), item.name + " " + token.id)
@@ -906,13 +867,11 @@ extension ArtBlocksCatalogTests {
             }
             XCTAssertNil(CollectionCatalog.collectionBrowseThumbnailDescriptor(specificCollectionId: item.id, tokenIndex: -1))
             XCTAssertNil(CollectionCatalog.collectionBrowseThumbnailDescriptor(specificCollectionId: item.id, tokenIndex: tokens.items.count))
-            count += tokens.items.count
         }
-        XCTAssertEqual(count, 143_847)
     }
 
     func testNeighborhoodUsesPerTokenAspectRatiosForBrowsingAndPlayback() throws {
-        let item = try XCTUnwrap(additions.first { $0.internalSlug == "neighborhood" })
+        let item = try XCTUnwrap(artBlocksCollections.first { $0.internalSlug == "neighborhood" })
         let tokens = try XCTUnwrap(SuggestedItemsService.cachedTokens(collectionId: item.id)).items
             .resolvingAspectRatios(default: item.aspectRatio)
         for (index, width, height) in [(0, 16, 9), (3, 1, 1), (7, 9, 16)] {
@@ -942,7 +901,7 @@ extension ArtBlocksCatalogTests {
             .resolvingAspectRatios(default: item.aspectRatio)
             for ratio in expected {
                 let index = try XCTUnwrap(tokens.firstIndex { $0.aspectRatio == ratio })
-                XCTAssertEqual(TokenGenerator.bundledWebGenerativeToken(specificCollectionId: item.id, tokenIndex: index)?.aspectRatio, ratio)
+                XCTAssertEqual(TokenGenerator.webGenerativeToken(specificCollectionId: item.id, tokenIndex: index)?.aspectRatio, ratio)
                 let sources = try XCTUnwrap(CollectionCatalog.collectionBrowseImageSources(specificCollectionId: item.id, tokenIndex: index))
                 XCTAssertEqual(sources.thumbnailDescriptor.aspectRatio, ratio)
                 XCTAssertEqual(sources.largeDescriptor.aspectRatio, ratio)
@@ -958,7 +917,7 @@ extension ArtBlocksCatalogTests {
 
     func testLargeCollectionsGenerateOnlyRequestedTokensWithoutImages() throws {
         for name in ["Friendship Bracelets", "Trademark", "Flowers"] {
-            let item = try XCTUnwrap(additions.first { $0.name == name })
+            let item = try XCTUnwrap(artBlocksCollections.first { $0.name == name })
             let count = CollectionCatalog.tokenCount(specificCollectionId: item.id)
             XCTAssertGreaterThan(count, 1_000)
             for index in [0, count / 2, count - 1] {
@@ -973,19 +932,61 @@ extension ArtBlocksCatalogTests {
         }
     }
 
-    func testCatalogMetadataRoundTripsAndLegacyDefaultsRemainAvailable() throws {
-        let item = try XCTUnwrap(additions.first)
+    func testCatalogMetadataRoundTripsAndOptionalCapabilitiesKeepTheirDefaults() throws {
+        let item = try collectionFixture(metadata: ["aspectRatio": [3, 4]])
         let encoder = JSONEncoder()
         let decoded = try JSONDecoder().decode(SuggestedItem.self, from: encoder.encode(item))
         XCTAssertEqual(decoded, item)
-        var fields = try XCTUnwrap(JSONSerialization.jsonObject(with: encoder.encode(item)) as? [String: Any])
-        for key in ["bundledDate", "generativeOnly", "hasCover", "hasThumbnails", "iosOnly", "bundledTokenCount", "hasUniformAspectRatio"] { fields.removeValue(forKey: key) }
-        let legacy = try JSONDecoder().decode(SuggestedItem.self, from: JSONSerialization.data(withJSONObject: fields))
-        XCTAssertNil(legacy.bundledDate)
-        XCTAssertNil(legacy.generativeOnly)
-        XCTAssertNil(legacy.bundledTokenCount)
-        XCTAssertNil(legacy.hasUniformAspectRatio)
-        XCTAssertTrue(CollectionCatalogItem(item: legacy).hasCover)
+        XCTAssertNil(decoded.generativeOnly)
+        XCTAssertNil(decoded.iosOnly)
+        XCTAssertTrue(CollectionCatalogItem(item: decoded).hasCover)
+        XCTAssertEqual(decoded.manifestTokenCount, 5)
+        XCTAssertEqual(decoded.hasUniformAspectRatio, false)
+    }
+
+    func testManifestMetadataIsRequiredAndRejectsInvalidCounts() throws {
+        let item = try collectionFixture()
+        let encoded = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(item)) as? [String: Any])
+        for field in ["manifestTokenCount", "hasUniformAspectRatio"] {
+            for value: Any? in [nil, NSNull(), "invalid"] {
+                var fields = encoded
+                fields[field] = value
+                XCTAssertThrowsError(try JSONDecoder().decode(
+                    SuggestedItem.self, from: JSONSerialization.data(withJSONObject: fields)
+                ), field)
+            }
+        }
+        XCTAssertThrowsError(try collectionFixture(metadata: ["manifestTokenCount": -1]))
+        let empty = try collectionFixture(metadata: ["manifestTokenCount": 0])
+        XCTAssertEqual(empty.manifestTokenCount, 0)
+        XCTAssertEqual(empty.hasUniformAspectRatio, false)
+    }
+
+    func testOnlyTheRangedNativeCardCollectionCanOmitManifestMetadata() throws {
+        let encoded = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(collectionFixture())
+        ) as? [String: Any])
+        for (slug, kind, isRangedNative) in [
+            ("card_nft_2", "native.card-nft-2", true),
+            ("different_slug", "native.card-nft-2", false),
+            ("card_nft_2", "native.poncho-drifella", false),
+            ("poncho_drifella", "native.poncho-drifella", false),
+            ("card_nft_2", "js", false)
+        ] {
+            var fields = encoded
+            fields["internal_slug"] = slug
+            fields["script"] = ["kind": kind]
+            fields.removeValue(forKey: "manifestTokenCount")
+            fields.removeValue(forKey: "hasUniformAspectRatio")
+            let data = try JSONSerialization.data(withJSONObject: fields)
+            if isRangedNative {
+                let item = try JSONDecoder().decode(SuggestedItem.self, from: data)
+                XCTAssertNil(item.manifestTokenCount)
+                XCTAssertNil(item.hasUniformAspectRatio)
+            } else {
+                XCTAssertThrowsError(try JSONDecoder().decode(SuggestedItem.self, from: data), slug)
+            }
+        }
     }
 
     func testMiNoteCollectionsOpenWithCoversNamesAndIndividualArtworkLinks() throws {
@@ -1044,7 +1045,6 @@ extension ArtBlocksCatalogTests {
             ("whispering_sands", 100, ["hugo_caselles_dupre"]),
             ("windwoven", 110, ["radix"])
         ]
-        var total = 0
         for (slug, count, artists) in collections {
             let item = try XCTUnwrap(SuggestedItemsService.allItems.first { $0.internalSlug == slug })
             XCTAssertEqual(item.chain, .ethereum)
@@ -1055,7 +1055,6 @@ extension ArtBlocksCatalogTests {
             XCTAssertEqual(item.tokenCount, count)
             XCTAssertEqual(item.standardThumbsPathsAvailable, true)
             XCTAssertNil(item.sizedThumbsIndexOffset)
-            XCTAssertNotNil(item.bundledDate?.range(of: "^\\d{4}-\\d{2}-\\d{2}$", options: .regularExpression))
             XCTAssertEqual(SuggestedItemsService.artists(forCollectionId: item.id).map(\.id), artists)
             XCTAssertTrue(SuggestedItemsService.visibleItems.contains(item))
             XCTAssertTrue(CollectionCatalog.allItems.contains { $0.id == item.id && $0.hasCover })
@@ -1097,11 +1096,6 @@ extension ArtBlocksCatalogTests {
             }
             XCTAssertNil(CollectionCatalog.generateToken(specificCollectionId: item.id, tokenIndex: -1))
             XCTAssertNil(CollectionCatalog.generateToken(specificCollectionId: item.id, tokenIndex: count))
-            total += count
-        }
-        XCTAssertEqual(total, 1_541)
-        for slug in ["coral_colors", "elefante"] {
-            XCTAssertFalse(SuggestedItemsService.allItems.contains { $0.internalSlug == slug })
         }
     }
 

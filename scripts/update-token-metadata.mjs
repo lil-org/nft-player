@@ -16,7 +16,7 @@ const { assertValidInternalSlugs } = suggestedItems;
 const { decodeTokenManifest, serializeTokenManifest } = tokenManifest;
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const defaultItemsPath = path.join(repositoryRoot, "Suggested Items/items.json");
-const metadataFields = ["bundledTokenCount", "hasUniformAspectRatio"];
+const metadataFields = ["manifestTokenCount", "hasUniformAspectRatio"];
 let mediaValidator;
 
 async function validateDownloadableCounts(collections) {
@@ -27,7 +27,7 @@ async function validateDownloadableCounts(collections) {
     const executable = path.join(temporaryDirectory, "validate-media");
     const compilation = spawnSync("xcrun", ["swiftc", "-O",
       path.join(repositoryRoot, "Shared/Models/ArtworkAssetPolicy.swift"),
-      path.join(repositoryRoot, "Shared/Models/BundledMediaResolver.swift"),
+      path.join(repositoryRoot, "Shared/Models/ArtworkMediaResolver.swift"),
       path.join(repositoryRoot, "scripts/count-downloadable-media.swift"), "-o", executable], { encoding: "utf8" });
     if (compilation.error) throw compilation.error;
     if (compilation.status !== 0) throw new Error(`Cannot compile downloadable media validator: ${compilation.stderr.trim()}`);
@@ -68,12 +68,12 @@ export function tokenMetadata(collection, payload) {
     : normalizedRatio(collection.aspectRatio, `${slug}: collection aspectRatio`);
   let ratios;
   try {
-    ratios = decodeAspectRatioMetadata({ items: decoded.items }, defaultRatio);
+    ratios = decodeAspectRatioMetadata(payload, defaultRatio);
   } catch (error) {
     throw new Error(`${slug}: ${error.message}`, { cause: error });
   }
   return {
-    bundledTokenCount: decoded.items.length,
+    manifestTokenCount: decoded.items.length,
     hasUniformAspectRatio: decoded.items.length > 0 && defaultRatio != null
       && ratios.every((ratio) => ratio != null
         && ratio[0] === defaultRatio[0] && ratio[1] === defaultRatio[1]),
@@ -127,7 +127,7 @@ export async function updateTokenMetadata({
       }
       Object.assign(updated, metadata);
       tokenFileCount += 1;
-      tokenCount += metadata.bundledTokenCount;
+      tokenCount += metadata.manifestTokenCount;
     }
     if (metadataFields.some((field) => Object.hasOwn(item, field) !== Object.hasOwn(updated, field)
         || item[field] !== updated[field])) staleSlugs.push(slug);
@@ -138,7 +138,7 @@ export async function updateTokenMetadata({
   for (const manifest of manifests) {
     const { items, excludedMediaIndices } = manifest;
     manifest.expected = serializeTokenManifest(items, { excludedMediaIndices });
-    assert.deepEqual(decodeTokenManifest(JSON.parse(manifest.expected), { allowLegacy: false }).items,
+    assert.deepEqual(decodeTokenManifest(JSON.parse(manifest.expected)).items,
       items, `${manifest.slug}: compact conversion must preserve every ordered token value`);
     if (manifest.source !== manifest.expected) staleManifests.push(manifest);
   }

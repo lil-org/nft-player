@@ -19,21 +19,21 @@ export function collectionManifestDescriptors(items) {
   assertValidInternalSlugs(items);
   return items.flatMap((item) => {
     if (item.internal_slug === "card_nft_2" && item.script?.kind === "native.card-nft-2") return [];
-    if (!Number.isSafeInteger(item.bundledTokenCount) || item.bundledTokenCount < 0) {
-      throw new Error(`${item.internal_slug}: invalid bundledTokenCount.`);
+    if (!Number.isSafeInteger(item.manifestTokenCount) || item.manifestTokenCount < 0) {
+      throw new Error(`${item.internal_slug}: invalid manifestTokenCount.`);
     }
     return [{
       slug: item.internal_slug,
       filename: `${item.internal_slug}.json`,
       url: `https://cdn.lil.org/player/collections/${item.internal_slug}.json`,
-      count: item.bundledTokenCount,
+      count: item.manifestTokenCount,
     }];
   });
 }
 
 function validateManifest(data, descriptor) {
   const payload = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(data));
-  const decoded = decodeTokenManifest(payload, { allowLegacy: false });
+  const decoded = decodeTokenManifest(payload);
   if (decoded.items.length !== descriptor.count) {
     throw new Error(`${descriptor.slug}: expected ${descriptor.count} tokens, received ${decoded.items.length}.`);
   }

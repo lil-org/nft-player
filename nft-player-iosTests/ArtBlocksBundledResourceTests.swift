@@ -304,12 +304,12 @@ extension ArtBlocksBundledResourceTests {
         add(attachment)
     }
 
-    private func hypertypeResources() throws -> (Script, BundledTokens) {
+    private func hypertypeResources() throws -> (Script, CollectionTokens) {
         let identifier = "0xbb5471c292065d3b01b2e81e299267221ae9a2500"
         let tokensURL = try XCTUnwrap(CollectionTokenFixtures.url(collectionId: identifier))
         return (
             try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: identifier)),
-            try BundledTokens(data: Data(contentsOf: tokensURL))
+            try CollectionTokens(data: Data(contentsOf: tokensURL))
         )
     }
 

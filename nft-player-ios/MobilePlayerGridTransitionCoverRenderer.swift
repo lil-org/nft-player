@@ -25,10 +25,6 @@ final class MobilePlayerGridTransitionCoverRenderer {
         activeCover != nil
     }
 
-    var activeGeneration: Generation? {
-        activeCover?.generation
-    }
-
     var capturedContentOffset: CGPoint? {
         activeCover?.capturedContentOffset
     }

@@ -61,7 +61,7 @@ nonisolated struct CollectionCatalogItem: Hashable, Identifiable, Sendable {
     init(item: SuggestedItem) {
         id = item.id
         name = item.name
-        coverAssetName = item.bundledResourceName
+        coverAssetName = item.resourceName
         hasCover = item.hasCover != false
     }
 }
@@ -854,7 +854,7 @@ nonisolated enum CollectionCatalog {
             throw PreparationFailure.unknownCollection
         }
         guard let resourceName = SuggestedItemsService.tokenResourceName(collectionId: item.id) else { return }
-        let tokens: BundledTokens
+        let tokens: CollectionTokens
         if let prepared = SuggestedItemsService.cachedTokens(collectionId: item.id) {
             tokens = prepared
         } else {
@@ -882,7 +882,7 @@ nonisolated enum CollectionCatalog {
         prepareTokenModels(tokens, collectionId: item.id)
     }
 
-    private static func prepareTokenModels(_ tokens: BundledTokens, collectionId: String) {
+    private static func prepareTokenModels(_ tokens: CollectionTokens, collectionId: String) {
         TokenGenerator.prepareCollection(collectionId: collectionId, tokens: tokens)
         DownloadableCollectionService.prepareCollection(collectionId: collectionId, tokens: tokens)
     }
@@ -1230,8 +1230,7 @@ nonisolated struct DownloadableCollectionIndexItem: Codable, Hashable, Identifia
     let chain: Chain
     let network: Network
     let tokenCount: Int
-    let bundledTokenCount: Int?
-    let hasUniformAspectRatio: Bool?
+    let hasUniformAspectRatio: Bool
     let webURL: URL?
     let urlPrefix: String?
     let aspectRatio: AspectRatio?
@@ -1239,7 +1238,8 @@ nonisolated struct DownloadableCollectionIndexItem: Codable, Hashable, Identifia
 
     init?(item: SuggestedItem) {
         guard item.isDownloadableCollection,
-              let tokenCount = item.tokenCount else {
+              let tokenCount = item.tokenCount,
+              let hasUniformAspectRatio = item.hasUniformAspectRatio else {
             return nil
         }
         id = item.id
@@ -1248,8 +1248,7 @@ nonisolated struct DownloadableCollectionIndexItem: Codable, Hashable, Identifia
         chain = item.chain
         network = item.network
         self.tokenCount = tokenCount
-        bundledTokenCount = item.bundledTokenCount
-        hasUniformAspectRatio = item.hasUniformAspectRatio
+        self.hasUniformAspectRatio = hasUniformAspectRatio
         webURL = item.webURL.flatMap(URL.init(string:))
         urlPrefix = item.urlPrefix
         aspectRatio = item.aspectRatio
@@ -1283,11 +1282,7 @@ nonisolated private enum DownloadableCollectionService {
         }) {
             return cachedCount
         }
-        return BundledTokenMetadata.count(
-            collection.bundledTokenCount == nil ? nil : collection.tokenCount
-        ) {
-            tokenData(collectionId: collectionId)?.tokens.count ?? collection.tokenCount
-        }
+        return collection.tokenCount
     }
 
     static func indexedTokenCount(collectionId: String) -> Int? {
@@ -1412,8 +1407,8 @@ nonisolated private enum DownloadableCollectionService {
         }) {
             return cachedTokenData.aspectRatioProfile
         }
-        return BundledTokenMetadata.aspectRatioProfile(
-            count: collection.bundledTokenCount == nil ? nil : collection.tokenCount,
+        return CollectionTokenMetadata.aspectRatioProfile(
+            count: collection.tokenCount,
             isUniform: collection.hasUniformAspectRatio,
             defaultAspectRatio: collection.aspectRatio
         ) {
@@ -1467,7 +1462,7 @@ nonisolated private enum DownloadableCollectionService {
         )
     }
 
-    static func prepareCollection(collectionId: String, tokens: BundledTokens) {
+    static func prepareCollection(collectionId: String, tokens: CollectionTokens) {
         guard let collection = index.collectionById[collectionId],
               cache.withLock({ $0.tokenDataByCollectionId[collectionId] }) == nil else { return }
         let exclusions = Set(tokens.excludedMediaIndices)
@@ -1565,12 +1560,12 @@ nonisolated struct DownloadableTokenItem: Codable, Hashable, Sendable {
 
     func resolvedFileExtension(collection: DownloadableCollectionIndexItem) -> String? {
         guard let url = resolvedURLString(collection: collection) else { return nil }
-        return BundledMediaResolver.resolve(url)?.fileExtension
+        return ArtworkMediaResolver.resolve(url)?.fileExtension
     }
 
     func resolvedMedia(collection: DownloadableCollectionIndexItem) -> GeneratedTokenMedia? {
         guard let urlString = resolvedURLString(collection: collection),
-              let resolved = BundledMediaResolver.resolve(urlString),
+              let resolved = ArtworkMediaResolver.resolve(urlString),
               let fileExtension = resolved.fileExtension,
               let kind = resolved.kind else {
             return nil

@@ -6,9 +6,8 @@ nonisolated struct SuggestedItem: Identifiable, Hashable, Codable, Sendable {
     
     var id: String { address + (abId ?? collectionId ?? "") }
 
-    var bundledResourceName: String {
-        guard let internalSlug, !internalSlug.isEmpty else { return id }
-        return internalSlug
+    var resourceName: String {
+        internalSlug
     }
 
     var scriptProjectId: String {
@@ -23,7 +22,6 @@ nonisolated struct SuggestedItem: Identifiable, Hashable, Codable, Sendable {
               sha256.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil else {
             return nil
         }
-        let resourceName = bundledResourceName
         guard !resourceName.isEmpty,
               resourceName != ".", resourceName != "..",
               !resourceName.contains("/"), !resourceName.contains("\\") else { return nil }
@@ -57,10 +55,6 @@ nonisolated struct SuggestedItem: Identifiable, Hashable, Codable, Sendable {
         chain == .tezos
     }
 
-    var isIOSOnlyCollection: Bool {
-        isSolanaCollection || isTezosCollection || iosOnly == true
-    }
-
     var isDownloadableCollection: Bool {
         generativeOnly != true && (isSolanaCollection || isTezosCollection || tokenCount != nil)
     }
@@ -70,16 +64,15 @@ nonisolated struct SuggestedItem: Identifiable, Hashable, Codable, Sendable {
     }
 
     let name: String
-    let internalSlug: String?
+    let internalSlug: String
     let address: String
     let chainId: Int
     let chain: Chain
     let collectionId: String?
     let abId: String?
     let tokenCount: Int?
-    let bundledTokenCount: Int?
+    let manifestTokenCount: Int?
     let hasUniformAspectRatio: Bool?
-    let bundledDate: String?
     let iosOnly: Bool?
     let generativeOnly: Bool?
     let hasCover: Bool?
@@ -106,9 +99,8 @@ nonisolated struct SuggestedItem: Identifiable, Hashable, Codable, Sendable {
         case collectionId
         case abId
         case tokenCount
-        case bundledTokenCount
+        case manifestTokenCount
         case hasUniformAspectRatio
-        case bundledDate
         case iosOnly
         case generativeOnly
         case hasCover
@@ -125,6 +117,56 @@ nonisolated struct SuggestedItem: Identifiable, Hashable, Codable, Sendable {
         case sizedThumbsIndexOffset
         case artists
         case script
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decode(String.self, forKey: .name)
+        internalSlug = try container.decode(String.self, forKey: .internalSlug)
+        guard !internalSlug.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .internalSlug,
+                in: container,
+                debugDescription: "Collection resource slug must not be empty"
+            )
+        }
+        address = try container.decode(String.self, forKey: .address)
+        chainId = try container.decode(Int.self, forKey: .chainId)
+        chain = try container.decode(Chain.self, forKey: .chain)
+        collectionId = try container.decodeIfPresent(String.self, forKey: .collectionId)
+        abId = try container.decodeIfPresent(String.self, forKey: .abId)
+        tokenCount = try container.decodeIfPresent(Int.self, forKey: .tokenCount)
+        script = try container.decodeIfPresent(Script.Metadata.self, forKey: .script)
+        if internalSlug == "card_nft_2", script?.kind == .cardNft2Native {
+            manifestTokenCount = nil
+            hasUniformAspectRatio = nil
+        } else {
+            let count = try container.decode(Int.self, forKey: .manifestTokenCount)
+            guard count >= 0 else {
+                throw DecodingError.dataCorruptedError(
+                    forKey: .manifestTokenCount,
+                    in: container,
+                    debugDescription: "Manifest token count must be nonnegative"
+                )
+            }
+            manifestTokenCount = count
+            hasUniformAspectRatio = try container.decode(Bool.self, forKey: .hasUniformAspectRatio)
+        }
+        iosOnly = try container.decodeIfPresent(Bool.self, forKey: .iosOnly)
+        generativeOnly = try container.decodeIfPresent(Bool.self, forKey: .generativeOnly)
+        hasCover = try container.decodeIfPresent(Bool.self, forKey: .hasCover)
+        hasThumbnails = try container.decodeIfPresent(Bool.self, forKey: .hasThumbnails)
+        urlPrefix = try container.decodeIfPresent(String.self, forKey: .urlPrefix)
+        aspectRatio = try container.decodeIfPresent(AspectRatio.self, forKey: .aspectRatio)
+        hasMid = try container.decodeIfPresent(Bool.self, forKey: .hasMid)
+        iosCollectionBrowserColumnCount = try container.decodeIfPresent(Int.self, forKey: .iosCollectionBrowserColumnCount)
+        playerBackgroundColor = try container.decodeIfPresent(String.self, forKey: .playerBackgroundColor)
+        webURL = try container.decodeIfPresent(String.self, forKey: .webURL)
+        collectionWebURL = try container.decodeIfPresent(String.self, forKey: .collectionWebURL)
+        standardThumbsPathsAvailable = try container.decodeIfPresent(Bool.self, forKey: .standardThumbsPathsAvailable)
+        standardThumbsBaseURL = try container.decodeIfPresent(String.self, forKey: .standardThumbsBaseURL)
+        sizedThumbsIndexOffset = try container.decodeIfPresent(Int.self, forKey: .sizedThumbsIndexOffset)
+        artists = try container.decode([String].self, forKey: .artists)
     }
     
 }

@@ -35,7 +35,7 @@ function validateIndices(value, count) {
   return value;
 }
 
-function validateRows(items) {
+function validateTokenRows(items) {
   if (!Array.isArray(items)) throw new TypeError("Token payload must contain an items array");
   return items.map((item, index) => {
     if (!object(item) || typeof item.id !== "string" || item.id.length === 0) {
@@ -52,14 +52,8 @@ function validateRows(items) {
   });
 }
 
-function decodeTokenManifest(payload, { allowLegacy = true } = {}) {
+function decodeTokenManifest(payload) {
   if (!object(payload)) throw new TypeError("Token payload must be an object");
-  if (Object.hasOwn(payload, "items")) {
-    if (!allowLegacy || Object.keys(payload).some((key) => key !== "items")) {
-      throw new TypeError("Legacy items cannot be combined with compact manifest fields");
-    }
-    return { items: validateRows(payload.items) };
-  }
   if (payload.version !== 2) throw new TypeError("Unsupported token manifest version");
   const { count } = payload;
   if (!Number.isSafeInteger(count) || count < 0) throw new TypeError("Token count must be a nonnegative integer");
@@ -136,7 +130,7 @@ function urlTemplate(items) {
 }
 
 function encodeTokenManifest(payload, options = {}) {
-  const decoded = Array.isArray(payload) ? { items: validateRows(payload) } : decodeTokenManifest(payload);
+  const decoded = Array.isArray(payload) ? { items: validateTokenRows(payload) } : decodeTokenManifest(payload);
   const { items } = decoded;
   const firstId = rangeStart(items);
   const result = { version: 2, count: items.length,
@@ -164,4 +158,4 @@ function serializeTokenManifest(payload, options) {
   return `${JSON.stringify(encodeTokenManifest(payload, options))}\n`;
 }
 
-module.exports = { decodeTokenManifest, encodeTokenManifest, serializeTokenManifest };
+module.exports = { decodeTokenManifest, encodeTokenManifest, serializeTokenManifest, validateTokenRows };

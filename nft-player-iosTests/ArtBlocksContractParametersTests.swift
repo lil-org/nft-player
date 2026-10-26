@@ -51,7 +51,7 @@ private final class ContractParametersFixture: NSObject, WKScriptMessageHandler 
         window.layoutIfNeeded()
     }
 
-    func load(script: Script, token: BundledTokens.Item) throws {
+    func load(script: Script, token: CollectionTokens.Item) throws {
         webView.configureArtBlocksRendering(collectionId: script.id, tokenId: token.id) { [weak self] in self?.errors.append($0) }
         var html = RawHtmlGenerator.createHtml(script: script, token: token)
         let start = try XCTUnwrap(html.range(of: "<script>let tokenData = ")).upperBound
@@ -208,22 +208,22 @@ extension ArtBlocksContractParametersTests {
             "version": 2, "count": 1, "firstId": "7", "hash": ["0xabc"],
             "contractParameters": [parameters], "aspectRatio": [[3, 4]]
         ])
-        let tokens = try JSONDecoder().decode(BundledTokens.self, from: data)
+        let tokens = try JSONDecoder().decode(CollectionTokens.self, from: data)
         let first = try XCTUnwrap(tokens.items.first)
         XCTAssertEqual(first.id, "7")
         XCTAssertEqual(first.hash, "0xabc")
         XCTAssertEqual(first.contractParameters, parameters)
         XCTAssertEqual(first.aspectRatio, AspectRatio(width: 3, height: 4))
-        let restored = try JSONDecoder().decode(BundledTokens.self, from: JSONEncoder().encode(tokens))
+        let restored = try JSONDecoder().decode(CollectionTokens.self, from: JSONEncoder().encode(tokens))
         XCTAssertEqual(restored.items.first?.contractParameters, parameters)
         XCTAssertEqual(restored.items.first?.aspectRatio, first.aspectRatio)
         let invalid = Data(#"{"id":"7","contractParameters":{"number":42}}"#.utf8)
-        XCTAssertThrowsError(try JSONDecoder().decode(BundledTokens.Item.self, from: invalid))
+        XCTAssertThrowsError(try JSONDecoder().decode(CollectionTokens.Item.self, from: invalid))
     }
 
     func testParameterObjectReplacesOnlyTheMatchingArtBlocksOnchainDependency() throws {
         let parameters = ["parameter": "frozen"]
-        let token = BundledTokens.Item(id: "1", name: nil, hash: "0xabc", contractParameters: parameters)
+        let token = CollectionTokens.Item(id: "1", name: nil, hash: "0xabc", contractParameters: parameters)
         let matched = try syntheticScript(dependency: dependency())
         let matchedData = try tokenData(in: RawHtmlGenerator.createHtml(script: matched, token: token, forceLibScript: ""))
         let assets = try XCTUnwrap(matchedData["externalAssetDependencies"] as? [[String: Any]])
@@ -242,7 +242,7 @@ extension ArtBlocksContractParametersTests {
     func testEscapedParameterStringsRemainObjectsAndDoNotAffectOtherRenderers() throws {
         let parameter = "</script><script>window.bad = true</script>\n雪 \\ \"quoted\""
         let parameters = ["text": parameter]
-        let token = BundledTokens.Item(id: "1", name: nil, hash: "0xabc", contractParameters: parameters)
+        let token = CollectionTokens.Item(id: "1", name: nil, hash: "0xabc", contractParameters: parameters)
         let script = try syntheticScript(dependency: dependency())
         let html = RawHtmlGenerator.createHtml(script: script, token: token, forceLibScript: "")
         XCTAssertFalse(html.contains("<script>window.bad = true</script>"))
@@ -250,7 +250,7 @@ extension ArtBlocksContractParametersTests {
         let assets = try XCTUnwrap(data["externalAssetDependencies"] as? [[String: Any]])
         XCTAssertEqual(assets.first?["data"] as? [String: String], parameters)
         let production = try syntheticScript(dependency: dependency(), artBlocksRendering: false)
-        let originalToken = BundledTokens.Item(id: token.id, name: nil, hash: token.hash)
+        let originalToken = CollectionTokens.Item(id: token.id, name: nil, hash: token.hash)
         XCTAssertEqual(
             RawHtmlGenerator.createHtml(script: production, token: token, forceLibScript: ""),
             RawHtmlGenerator.createHtml(script: production, token: originalToken, forceLibScript: "")
@@ -258,10 +258,8 @@ extension ArtBlocksContractParametersTests {
     }
 
     func testAllMintedContractTokensContainFrozenParametersAndPreserveIdentity() throws {
-        let selected = SuggestedItemsService.allItems
-        let affected = selected.filter { collectionNames.contains($0.name) }
+        let affected = SuggestedItemsService.allItems.filter { collectionNames.contains($0.name) }
         XCTAssertEqual(affected.count, 3)
-        XCTAssertEqual(selected.count, 529)
         for item in affected {
             XCTAssertTrue(TokenGenerator.usesArtBlocksRenderer(collectionId: item.id))
             let script = try bundledScript(item)

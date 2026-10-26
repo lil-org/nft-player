@@ -2779,10 +2779,6 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         gridModeCoordinator.resetGeometryState()
     }
 
-    func flushPendingGridModePinchFrameForTesting() {
-        gridModeCoordinator.flushPendingPinchFrameForTesting()
-    }
-
     func browseImageSourcesForTesting(
         tokenIndex: Int
     ) -> CollectionBrowseImageSources? {
@@ -2793,12 +2789,11 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         imageSourcesCache.cachedImageSourceCount
     }
 
-#endif
-
     func handleGridModePinchForTesting(
         _ recognizer: UIPinchGestureRecognizer
     ) {
         gridModeCoordinator.handleGridModePinchForTesting(recognizer)
     }
+#endif
 
 }

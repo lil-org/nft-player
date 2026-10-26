@@ -10,7 +10,7 @@ extension CollectionOpeningDestinationTests {
         let destination = CollectionOpeningDestination(collectionId: item.id)
 
         XCTAssertEqual(destination.title, item.name)
-        XCTAssertEqual(destination.itemCount, item.bundledTokenCount)
+        XCTAssertEqual(destination.itemCount, item.manifestTokenCount)
         XCTAssertEqual(destination.uniformAspectRatio, item.aspectRatio)
         XCTAssertEqual(destination.layout, .browser(columnCount: 3))
 
@@ -103,7 +103,7 @@ extension CollectionOpeningDestinationTests {
             topContentInset: topInset,
             bottomContentInset: bottomInset,
             aspectProfile: MobilePlayerBrowserAspectProfile(
-                itemCount: try XCTUnwrap(item.bundledTokenCount),
+                itemCount: try XCTUnwrap(item.manifestTokenCount),
                 uniformImageSize: try XCTUnwrap(item.aspectRatio).size
             )
         ))

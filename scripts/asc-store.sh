@@ -115,6 +115,33 @@ require_node() {
   fi
 }
 
+require_asc() {
+  local installed_version
+  local version_pattern='^v?([0-9]+)\.([0-9]+)\.([0-9]+)([[:space:]]|$)'
+  local major minor patch
+
+  if ! command -v asc >/dev/null 2>&1; then
+    echo "asc 1.9.1 or later is required. Install it from https://asccli.sh." >&2
+    return 1
+  fi
+  if ! installed_version="$(asc version)"; then
+    echo "Could not determine the installed asc version." >&2
+    return 1
+  fi
+  if [[ ! "$installed_version" =~ $version_pattern ]]; then
+    echo "Could not parse asc version: $installed_version. A stable asc 1.9.1 or later is required." >&2
+    return 1
+  fi
+
+  major=$((10#${BASH_REMATCH[1]}))
+  minor=$((10#${BASH_REMATCH[2]}))
+  patch=$((10#${BASH_REMATCH[3]}))
+  if (( major < 1 || (major == 1 && minor < 9) || (major == 1 && minor == 9 && patch < 1) )); then
+    echo "asc 1.9.1 or later is required; found $installed_version." >&2
+    return 1
+  fi
+}
+
 usage() {
   cat <<'EOF'
 Usage:
@@ -126,7 +153,7 @@ Usage:
   scripts/asc-store.sh version
 
 Prerequisites:
-  asc and Node.js must be available on PATH.
+  asc 1.9.1 or later and Node.js must be available on PATH.
 
 Environment:
   ASC_APP_ID or APP_ID   Optional App Store Connect app id override.
@@ -136,7 +163,7 @@ Environment:
   UPLOAD_EXPORT_OPTIONS  Export options for direct upload releases.
   VERSION                Optional release version override. Defaults to the Xcode project version.
   BUILD_NUMBER           Optional build number override. Defaults to the Xcode project build number.
-  ASC_TIMEOUT            asc request timeout. Defaults to 180s.
+  ASC_TIMEOUT            asc request timeout. Defaults to 600s.
   DRY_RUN=1              Preview asc mutations where the command supports it.
 EOF
 }
@@ -1627,62 +1654,16 @@ apply_review_details() {
   fi
 }
 
-asc_supports_review_submit() {
-  asc review submit --help >/dev/null 2>&1
-}
-
-asc_supports_review_submission_fallback() {
-  asc versions attach-build --help >/dev/null 2>&1 &&
-    asc review submissions-create --help >/dev/null 2>&1 &&
-    asc review items-add --help >/dev/null 2>&1 &&
-    asc review submissions-submit --help >/dev/null 2>&1
-}
-
-ensure_macos_review_submission_commands() {
-  if asc_supports_review_submit || asc_supports_review_submission_fallback; then
-    return 0
-  fi
-
-  echo "Installed asc does not expose a supported macOS review submission path." >&2
-  echo "Expected either 'asc review submit' or the documented 'versions attach-build' plus 'review submissions-*' commands." >&2
-  return 1
-}
-
 submit_macos_review() {
   local build_id="$1"
-  local version_id
-  local submission_json
-  local submission_id
-  local submit_args=()
 
   ensure_app_id
-  if asc_supports_review_submit; then
-    submit_args=(review submit)
-    submit_args+=(--app "$RESOLVED_ASC_APP_ID")
-    submit_args+=(
-      --version "$VERSION"
-      --build "$build_id"
-      --platform MAC_OS
-      --confirm
-    )
-    run_review_submission_command macos asc "${submit_args[@]}"
-    return
-  fi
-
-  if ! asc_supports_review_submission_fallback; then
-    ensure_macos_review_submission_commands
-    return
-  fi
-
-  version_id="$(resolve_version_id macos)"
-  asc versions attach-build --version-id "$version_id" --build "$build_id"
-  submission_json="$(asc review submissions-create --app "$RESOLVED_ASC_APP_ID" --platform MAC_OS --output json)"
-  if ! submission_id="$(printf '%s' "$submission_json" | id_from_json)"; then
-    echo "Could not read review submission id from asc review submissions-create output." >&2
-    return 1
-  fi
-  asc review items-add --submission "$submission_id" --item-type appStoreVersions --item-id "$version_id"
-  run_review_submission_command macos asc review submissions-submit --id "$submission_id" --confirm
+  run_review_submission_command macos asc review submit \
+    --app "$RESOLVED_ASC_APP_ID" \
+    --version "$VERSION" \
+    --build "$build_id" \
+    --platform MAC_OS \
+    --confirm
 }
 
 release_macos() {
@@ -1699,7 +1680,6 @@ release_macos() {
     return 0
   fi
 
-  ensure_macos_review_submission_commands
   mkdir -p .asc/artifacts
 
   asc xcode archive \
@@ -1802,6 +1782,12 @@ fi
 case "$command" in
   validate|metadata|screenshots|release|bump)
     require_node
+    ;;
+esac
+
+case "$command" in
+  validate|metadata|screenshots|release)
+    require_asc
     ;;
 esac
 

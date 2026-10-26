@@ -650,20 +650,12 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
         )
     }
 
-    func flushPendingPinchFrameForTesting() {
-        let output = transitionRuntime.flushPendingPinch(
-            at: frameDriver.now
-        )
-        applyRuntimeOutput(output, transitionAnchor: nil)
-    }
-
-#endif
-
     func handleGridModePinchForTesting(
         _ recognizer: UIPinchGestureRecognizer
     ) {
         handlePinch(recognizer)
     }
+#endif
 
     private func prewarmNextGeometry() {
         guard !isInvalidated,

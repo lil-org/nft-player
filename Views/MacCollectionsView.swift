@@ -14,24 +14,24 @@ private let collectionsGridMinimumItemWidth: CGFloat = 100
 private let collectionsGridColumnSpacing: CGFloat = 0
 private let collectionsGridRowSpacing: CGFloat = 0
 
-private struct WalletViewingProgressState {
+private struct MacCollectionViewingProgressState {
     let snapshot: PlayerViewingProgressSnapshot
     let recentContinueViewingProgresses: [PlayerViewingProgress]
 
-    static let empty = WalletViewingProgressState(
+    static let empty = MacCollectionViewingProgressState(
         snapshot: .empty,
         recentContinueViewingProgresses: []
     )
 }
 
-struct WalletsListView: View {
+struct MacCollectionsView: View {
 
     private let collectionItems: [CollectionCatalogItem]
     @State private var widgetLaunchPresentationState = WidgetLaunchPresentationState.shared
     @State private var gridPassCount: Int
     @State private var gridScrollMemoryTracker: CollectionsGridScrollMemoryTracker
     @State private var hasRestoredInitialGridScrollPosition: Bool
-    @State private var viewingProgressState = WalletViewingProgressState.empty
+    @State private var viewingProgressState = MacCollectionViewingProgressState.empty
     @State private var continueViewingScrollResetID = 0
     @State private var hasLoadedViewingProgress = false
     @State private var viewingProgressRefreshID = 0
@@ -218,7 +218,7 @@ struct WalletsListView: View {
         guard !Task.isCancelled, refreshID == viewingProgressRefreshID else { return false }
 
         let previousLeadingCollectionId = recentContinueViewingProgresses.first?.collectionId
-        viewingProgressState = WalletViewingProgressState(
+        viewingProgressState = MacCollectionViewingProgressState(
             snapshot: progressSnapshot,
             recentContinueViewingProgresses: Self.visibleRecentContinueViewingProgresses(
                 from: progressSnapshot,

@@ -58,7 +58,7 @@ private final class ResolutionFixture {
         window.layoutIfNeeded()
     }
 
-    func load(_ script: Script, token: BundledTokens.Item, artBlocksRendering: Bool = true) {
+    func load(_ script: Script, token: CollectionTokens.Item, artBlocksRendering: Bool = true) {
         if artBlocksRendering {
             webView.configureArtBlocksRendering(collectionId: script.id, tokenId: token.id) { [weak self] in
                 self?.errors.append($0)
@@ -204,7 +204,7 @@ extension ArtBlocksRenderingResolutionTests {
             """,
             metadata: .init(kind: .p5js100, renderingProfile: .artBlocks)
         )
-        let token = BundledTokens.Item(id: "63000000", name: nil, hash: "0x" + String(repeating: "a", count: 64))
+        let token = CollectionTokens.Item(id: "63000000", name: nil, hash: "0x" + String(repeating: "a", count: 64))
         let fixture = try ResolutionFixture(size: CGSize(width: 100, height: 100))
         defer { fixture.close() }
         fixture.load(script, token: token)
@@ -236,7 +236,7 @@ extension ArtBlocksRenderingResolutionTests {
             """,
             metadata: .init(kind: .p5js100, renderingProfile: .artBlocks)
         )
-        let token = BundledTokens.Item(id: "17", name: nil, hash: "0x" + String(repeating: "a", count: 64))
+        let token = CollectionTokens.Item(id: "17", name: nil, hash: "0x" + String(repeating: "a", count: 64))
         let fixture = try ResolutionFixture(size: CGSize(width: 100, height: 100))
         defer { fixture.close() }
         fixture.load(script, token: token)
@@ -538,7 +538,7 @@ extension ArtBlocksRenderingResolutionTests {
         let tokenURL = try XCTUnwrap(CollectionTokenFixtures.url(collectionId: item.id))
         let originalSource = try Data(contentsOf: scriptURL)
         let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: item.id))
-        let tokens = try BundledTokens(data: Data(contentsOf: tokenURL)).items.resolvingAspectRatios(default: item.aspectRatio)
+        let tokens = try CollectionTokens(data: Data(contentsOf: tokenURL)).items.resolvingAspectRatios(default: item.aspectRatio)
         let token = try XCTUnwrap(tokens.indices.contains(tokenIndex) ? tokens[tokenIndex] : nil)
         let ratio = try XCTUnwrap(token.aspectRatio)
         let fixture = try ResolutionFixture(size: CGSize(width: 300, height: 300 / ratio.value))
@@ -631,13 +631,13 @@ extension ArtBlocksRenderingResolutionTests {
         add(attachment)
     }
 
-    private func syntheticScript(source: String, artBlocksRendering: Bool = true) throws -> (Script, BundledTokens.Item) {
+    private func syntheticScript(source: String, artBlocksRendering: Bool = true) throws -> (Script, CollectionTokens.Item) {
         let id = "resolution-test-\(UUID().uuidString)"
         let script = Script(
             id: id, address: "0xresolution", name: "Resolution fixture", abId: "0", value: source,
             metadata: .init(kind: .js, renderingProfile: artBlocksRendering ? .artBlocks : nil, requiresInitialCanvas: false)
         )
-        let token = BundledTokens.Item(id: "17", name: nil, hash: "0x" + String(repeating: "a", count: 64))
+        let token = CollectionTokens.Item(id: "17", name: nil, hash: "0x" + String(repeating: "a", count: 64))
         return (script, token)
     }
 

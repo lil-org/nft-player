@@ -213,7 +213,7 @@ nonisolated enum CollectionOfTheDayWidgetData {
     @concurrent
     static func randomStaticImageReference(collection: WidgetCollection) async -> WidgetStaticImageReference? {
         do {
-            let data = try await PersistentCollectionTokenCache.shared.data(for: collection.bundledResourceName)
+            let data = try await PersistentCollectionTokenCache.shared.data(for: collection.resourceName)
             let payload = try JSONDecoder().decode(WidgetTokenPayload.self, from: data)
             return payload.randomStaticImageReference(collection: collection)
         } catch {

@@ -1088,12 +1088,12 @@ private final class PlayerEdgeTapHighlightView: UIView {
 struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
 
     final class Coordinator {
-        private var lastBundledGenerativePresentationMode: MobileBundledGenerativePresentationMode?
-        func shouldApplyBundledGenerativePresentationMode(
-            _ mode: MobileBundledGenerativePresentationMode
+        private var lastWebGenerativePresentationMode: MobileWebGenerativePresentationMode?
+        func shouldApplyWebGenerativePresentationMode(
+            _ mode: MobileWebGenerativePresentationMode
         ) -> Bool {
-            guard lastBundledGenerativePresentationMode != mode else { return false }
-            lastBundledGenerativePresentationMode = mode
+            guard lastWebGenerativePresentationMode != mode else { return false }
+            lastWebGenerativePresentationMode = mode
             return true
         }
     }
@@ -1101,7 +1101,7 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
     private let playbackSession: MobilePlaybackSession
     private let artworkDependencyCache: PersistentArtworkDependencyCache
     private let chrome: MobilePlayerChromeController
-    private let bundledGenerativePresentationMode: MobileBundledGenerativePresentationMode
+    private let webGenerativePresentationMode: MobileWebGenerativePresentationMode
     private let onFocusedPagePositionUpdate: ((PlayerPagePosition) -> Void)
     private let onSettledPagePositionUpdate: ((PlayerPagePosition, Bool) -> Bool)
     private let onPaginationAttempt: (() -> Void)
@@ -1113,7 +1113,7 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
         playbackSession: MobilePlaybackSession,
         chrome: MobilePlayerChromeController,
         artworkDependencyCache: PersistentArtworkDependencyCache = .shared,
-        bundledGenerativePresentationMode: MobileBundledGenerativePresentationMode,
+        webGenerativePresentationMode: MobileWebGenerativePresentationMode,
         onFocusedPagePositionUpdate: @escaping (PlayerPagePosition) -> Void,
         onSettledPagePositionUpdate: @escaping (PlayerPagePosition, Bool) -> Bool,
         onPaginationAttempt: @escaping () -> Void,
@@ -1124,7 +1124,7 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
         self.playbackSession = playbackSession
         self.artworkDependencyCache = artworkDependencyCache
         self.chrome = chrome
-        self.bundledGenerativePresentationMode = bundledGenerativePresentationMode
+        self.webGenerativePresentationMode = webGenerativePresentationMode
         self.onFocusedPagePositionUpdate = onFocusedPagePositionUpdate
         self.onSettledPagePositionUpdate = onSettledPagePositionUpdate
         self.onPaginationAttempt = onPaginationAttempt
@@ -1142,7 +1142,7 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
             playbackSession: playbackSession,
             chrome: chrome,
             artworkDependencyCache: artworkDependencyCache,
-            bundledGenerativePresentationMode: bundledGenerativePresentationMode,
+            webGenerativePresentationMode: webGenerativePresentationMode,
             onFocusedPagePositionUpdate: onFocusedPagePositionUpdate,
             onSettledPagePositionUpdate: onSettledPagePositionUpdate,
             onPaginationAttempt: onPaginationAttempt,
@@ -1153,11 +1153,11 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: HorizontalPlayerContainer, context: Context) {
-        if context.coordinator.shouldApplyBundledGenerativePresentationMode(
-            bundledGenerativePresentationMode
+        if context.coordinator.shouldApplyWebGenerativePresentationMode(
+            webGenerativePresentationMode
         ) {
-            uiViewController.setBundledGenerativePresentationMode(
-                bundledGenerativePresentationMode
+            uiViewController.setWebGenerativePresentationMode(
+                webGenerativePresentationMode
             )
         }
     }
@@ -1168,7 +1168,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, U
     private let playbackSession: MobilePlaybackSession
     let artworkDependencyCache: PersistentArtworkDependencyCache
     private let chrome: MobilePlayerChromeController
-    private var bundledGenerativePresentationMode: MobileBundledGenerativePresentationMode
+    private var webGenerativePresentationMode: MobileWebGenerativePresentationMode
     private let onFocusedPagePositionUpdate: ((PlayerPagePosition) -> Void)
     private let onSettledPagePositionUpdate: ((PlayerPagePosition, Bool) -> Bool)
     private let onPaginationAttempt: (() -> Void)
@@ -1229,7 +1229,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, U
         playbackSession: MobilePlaybackSession,
         chrome: MobilePlayerChromeController,
         artworkDependencyCache: PersistentArtworkDependencyCache = .shared,
-        bundledGenerativePresentationMode: MobileBundledGenerativePresentationMode,
+        webGenerativePresentationMode: MobileWebGenerativePresentationMode,
         onFocusedPagePositionUpdate: @escaping (PlayerPagePosition) -> Void,
         onSettledPagePositionUpdate: @escaping (PlayerPagePosition, Bool) -> Bool,
         onPaginationAttempt: @escaping () -> Void,
@@ -1240,7 +1240,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, U
         self.playbackSession = playbackSession
         self.artworkDependencyCache = artworkDependencyCache
         self.chrome = chrome
-        self.bundledGenerativePresentationMode = bundledGenerativePresentationMode
+        self.webGenerativePresentationMode = webGenerativePresentationMode
         self.onFocusedPagePositionUpdate = onFocusedPagePositionUpdate
         self.onSettledPagePositionUpdate = onSettledPagePositionUpdate
         self.onPaginationAttempt = onPaginationAttempt
@@ -1343,13 +1343,13 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, U
         )
     }
 
-    fileprivate func setBundledGenerativePresentationMode(
-        _ presentationMode: MobileBundledGenerativePresentationMode
+    fileprivate func setWebGenerativePresentationMode(
+        _ presentationMode: MobileWebGenerativePresentationMode
     ) {
-        guard bundledGenerativePresentationMode != presentationMode else { return }
+        guard webGenerativePresentationMode != presentationMode else { return }
 
-        bundledGenerativePresentationMode = presentationMode
-        pagingVC.reloadRenderedBundledGenerativeWebContent()
+        webGenerativePresentationMode = presentationMode
+        pagingVC.reloadRenderedWebGenerativeWebContent()
     }
 
     private var allowsEdgeTapNavigation: Bool {
@@ -1617,18 +1617,18 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, U
         )
     }
 
-    fileprivate func currentBundledGenerativePresentationMode()
-        -> MobileBundledGenerativePresentationMode {
-        bundledGenerativePresentationMode
+    fileprivate func currentWebGenerativePresentationMode()
+        -> MobileWebGenerativePresentationMode {
+        webGenerativePresentationMode
     }
 
-    fileprivate func bundledGenerativeAspectRatio(
+    fileprivate func webGenerativeAspectRatio(
         for pagePosition: PlayerPagePosition
     ) -> AspectRatio? {
         let token = getToken(pagePosition: pagePosition)
         guard token.media == nil,
               token.nativeMetalCardRenderKind == nil,
-              TokenGenerator.isBundledWebGenerativeCollection(
+              TokenGenerator.isWebGenerativeCollection(
                 id: token.fullCollectionId
               ) else {
             return nil
@@ -1636,7 +1636,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, U
 
         if TokenGenerator.usesArtBlocksRenderer(collectionId: token.fullCollectionId),
            let index = TokenGenerator.tokenIndex(specificCollectionId: token.fullCollectionId, tokenId: token.id) {
-            return TokenGenerator.bundledWebGenerativeToken(
+            return TokenGenerator.webGenerativeToken(
                 specificCollectionId: token.fullCollectionId,
                 tokenIndex: index
             )?.aspectRatio
@@ -1735,9 +1735,9 @@ private protocol HorizontalPlayerDataSource: AnyObject {
     ) -> PlayerDownloadableMediaWindow?
     func clearDownloadableMediaWindow()
     func downloadableMediaDescriptor(for pagePosition: PlayerPagePosition) -> DownloadableMediaDescriptor?
-    func currentBundledGenerativePresentationMode()
-        -> MobileBundledGenerativePresentationMode
-    func bundledGenerativeAspectRatio(
+    func currentWebGenerativePresentationMode()
+        -> MobileWebGenerativePresentationMode
+    func webGenerativeAspectRatio(
         for pagePosition: PlayerPagePosition
     ) -> AspectRatio?
     func canRenderPagePosition(_ pagePosition: PlayerPagePosition) -> Bool
@@ -1980,7 +1980,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
                   self.pagePosition == position,
                   self.viewIfLoaded?.window != nil else { return }
             self.artworkResizeTask = nil
-            self.reloadRenderedBundledGenerativeWebContentIfNeeded()
+            self.reloadRenderedWebGenerativeWebContentIfNeeded()
         }
     }
 
@@ -2372,10 +2372,10 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             renderNativeMetalCard(token, renderKind: nativeRenderKind)
         } else if token.media == nil {
             playerDataSource?.clearDownloadableMediaWindow()
-            if TokenGenerator.isBundledWebGenerativeCollection(
+            if TokenGenerator.isWebGenerativeCollection(
                 id: token.fullCollectionId
             ) {
-                renderBundledGenerativeWebContent(token)
+                renderWebGenerativeWebContent(token)
             } else {
                 renderWebContent(token.html)
             }
@@ -2401,14 +2401,14 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         playerDataSource?.didRenderPagePosition(pagePosition)
     }
 
-    fileprivate func reloadRenderedBundledGenerativeWebContentIfNeeded() {
+    fileprivate func reloadRenderedWebGenerativeWebContentIfNeeded() {
         guard renderedPagePosition == pagePosition,
               willOrDidAppear,
               isPlaybackActive,
               let token = playerDataSource?.getToken(pagePosition: pagePosition),
               token.media == nil,
               token.nativeMetalCardRenderKind == nil,
-              TokenGenerator.isBundledWebGenerativeCollection(
+              TokenGenerator.isWebGenerativeCollection(
                 id: token.fullCollectionId
               ) else {
             return
@@ -2418,7 +2418,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
         resetZoom(animated: false)
         pageMedia.clear()
-        renderBundledGenerativeWebContent(token)
+        renderWebGenerativeWebContent(token)
     }
 
     fileprivate func refreshDownloadableMediaWindow() {
@@ -2543,22 +2543,22 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         pageMedia.render(.web(html))
     }
 
-    private func renderBundledGenerativeWebContent(_ token: GeneratedToken) {
+    private func renderWebGenerativeWebContent(_ token: GeneratedToken) {
         if isViewLoaded {
             view.layoutIfNeeded()
         }
-        setZoomContentLayout(bundledGenerativeWebContentLayout)
+        setZoomContentLayout(webGenerativeWebContentLayout)
         mediaRenderer.configureArtBlocksRendering(collectionId: token.fullCollectionId, tokenId: token.id)
         pageMedia.render(.web(token.html, onBegin: { [weak self] in
             self?.mediaContentView.layoutIfNeeded()
         }))
     }
 
-    private var bundledGenerativeWebContentLayout: ZoomContentLayout {
-        guard playerDataSource?.currentBundledGenerativePresentationMode()
+    private var webGenerativeWebContentLayout: ZoomContentLayout {
+        guard playerDataSource?.currentWebGenerativePresentationMode()
                 == .aspectFit,
               let aspectRatio = playerDataSource?
-                .bundledGenerativeAspectRatio(for: pagePosition) else {
+                .webGenerativeAspectRatio(for: pagePosition) else {
             return .viewport
         }
 
@@ -2710,9 +2710,9 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         view.isUserInteractionEnabled = active
     }
 
-    func reloadRenderedBundledGenerativeWebContent() {
+    func reloadRenderedWebGenerativeWebContent() {
         [pageA, pageB, pageC].forEach {
-            $0.reloadRenderedBundledGenerativeWebContentIfNeeded()
+            $0.reloadRenderedWebGenerativeWebContentIfNeeded()
         }
         updatePagingScrollEnabled()
     }

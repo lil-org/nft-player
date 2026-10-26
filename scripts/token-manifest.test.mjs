@@ -1,10 +1,6 @@
 import assert from "node:assert/strict";
-import fs from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
 import test from "node:test";
 import tokenManifest from "../tools/token_manifest.js";
-import aspectRatios from "../tools/aspect_ratios.js";
 
 const { decodeTokenManifest, encodeTokenManifest, serializeTokenManifest } = tokenManifest;
 
@@ -38,7 +34,7 @@ test("columns preserve present values and null placeholders without normalizing 
   assert.deepEqual(encoded.aspectRatio, [[8, 6], null]);
   assert.deepEqual(encoded.urlSuffix, [null, ""]);
   assert.deepEqual(decodeTokenManifest(encoded).items, rows);
-  assert.equal(serializeTokenManifest(rows), serializeTokenManifest({ items: rows }));
+  assert.equal(serializeTokenManifest(rows), serializeTokenManifest(encoded));
   assert.ok(serializeTokenManifest(rows).endsWith("\n"));
   assert.equal(serializeTokenManifest(rows).split("\n").length, 2);
 });
@@ -85,19 +81,15 @@ test("rejects malformed schemas, conflicting fields, invalid columns and overflo
     { ...base, urlTemplate: { value: "id" } }, { ...base, extra: true },
     { items: [{ id: "1", extra: true }] }, { items: [{ id: "1", aspectRatio: [1, 2, 3] }] },
   ]) assert.throws(() => decodeTokenManifest(payload), undefined, JSON.stringify(payload));
-  assert.throws(() => decodeTokenManifest({ items: [] }, { allowLegacy: false }), /Legacy/u);
+  assert.throws(() => decodeTokenManifest({ items: [] }), /version/u);
+  assert.throws(() => encodeTokenManifest({ items: [] }), /version/u);
 });
 
-test("aspect ratio file preservation accepts compact manifests", async (t) => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "nft-compact-ratio-"));
-  t.after(() => fs.rm(directory, { recursive: true, force: true }));
-  const file = path.join(directory, "tokens.json");
-  await fs.writeFile(file, serializeTokenManifest([
-    { id: "5" }, { id: "6", aspectRatio: [8, 6] },
-  ], { excludedMediaIndices: [0] }));
-  const result = await aspectRatios.preserveAspectRatioMetadataFromFile(file, {
-    items: [{ id: "6", hash: "new" }, { id: "5" }],
-  }, [1, 1]);
-  assert.deepEqual(result.report.preservedIds, ["6", "5"]);
-  assert.deepEqual(aspectRatios.decodeAspectRatioMetadata(result.payload, result.aspectRatio), [[4, 3], [1, 1]]);
+test("row encoding rejects malformed values instead of silently dropping them", () => {
+  for (const rows of [[null], [[]], [{}], [{ id: 1 }], [{ id: "" }],
+    [{ id: "1", extra: true }], [{ id: "1", name: 1 }], [{ id: "1", hash: false }],
+    [{ id: "1", urlSuffix: {} }], [{ id: "1", aspectRatio: [1, 2, 3] }],
+    [{ id: "1", contractParameters: [] }], [{ id: "1", contractParameters: { count: 1 } }]]) {
+    assert.throws(() => encodeTokenManifest(rows), undefined, JSON.stringify(rows));
+  }
 });

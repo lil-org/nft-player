@@ -61,7 +61,7 @@ private final class RenderingFixture {
         window.layoutIfNeeded()
     }
 
-    func load(script: Script, token: BundledTokens.Item, size: CGSize, html suppliedHTML: String? = nil) {
+    func load(script: Script, token: CollectionTokens.Item, size: CGSize, html suppliedHTML: String? = nil) {
         errors = []
         webView.invalidateRequestedContent()
         webView.configureArtBlocksRendering(collectionId: script.id, tokenId: token.id) { [weak self] in
@@ -227,7 +227,7 @@ private final class RenderingFixture {
 extension ArtBlocksRenderingTests {
     private struct Resources {
         let script: Script
-        let tokens: [BundledTokens.Item]
+        let tokens: [CollectionTokens.Item]
         let scriptURL: URL
         let tokensURL: URL
         let source: Data
@@ -235,14 +235,7 @@ extension ArtBlocksRenderingTests {
     }
 
     func testRenderingRepresentativeTiming() async throws {
-        try await benchmark(useBaseline: false)
-    }
-
-    func testRenderingBaselineTiming() async throws {
-        let baseline = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("build/artblocks-promotion/before/html")
-        try XCTSkipUnless(FileManager.default.fileExists(atPath: baseline.path), "Requires the captured pre-pass timing baseline")
-        try await benchmark(useBaseline: true)
+        try await benchmark()
     }
 
     func testAutopoiesisStartsAtFullQualityWithoutCorrectiveReload() async throws {
@@ -250,34 +243,28 @@ extension ArtBlocksRenderingTests {
         let resources = try resources(id)
         let token = try XCTUnwrap(resources.tokens.first)
         let viewport = try size(for: token)
-        let baselineURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("build/artblocks-promotion/before/html/\(id).html")
-        let modes = FileManager.default.fileExists(atPath: baselineURL.path) ? [true,false] : [false]
-        for baseline in modes {
-            let html = baseline ? try String(contentsOf: baselineURL, encoding: .utf8) : nil
-            let fixture = try RenderingFixture(size: viewport)
-            defer { fixture.close() }
-            AutoReloadingWebView.resetStartupCalibrationsForTesting()
-            let started = Date()
-            fixture.load(script: resources.script, token: token, size: viewport, html: html)
-            _ = try await waitForAppearance(fixture, script: resources.script, token: token, after: 0, started: started)
-            var snapshot = try await fixture.snapshot()
-            while Date().timeIntervalSince(started) < 20 {
-                if let quality = snapshot["quality"] as? [String: Any], let factor = quality["factor"] as? Double, factor <= 1.02 { break }
-                try await Task.sleep(for: .milliseconds(10))
-                snapshot = try await fixture.snapshot()
-            }
-            let quality = try XCTUnwrap(snapshot["quality"] as? [String: Any])
-            XCTAssertLessThanOrEqual(try XCTUnwrap(quality["factor"] as? Double), 1.02)
-            if !baseline { XCTAssertEqual(fixture.probe.documents.count, 1) }
-            let result: [String: Any] = ["baseline":baseline,"milliseconds":Date().timeIntervalSince(started)*1000,
-                "documents":fixture.probe.documents.count,"snapshot":snapshot]
-            print("AUTOPOIESIS_STABLE_JSON \(String(decoding: try JSONSerialization.data(withJSONObject: result,options:[.sortedKeys]),as:UTF8.self))")
-            attachJSON(result,name:"Autopoiesis \(baseline ? "before" : "after") stable quality")
+        let fixture = try RenderingFixture(size: viewport)
+        defer { fixture.close() }
+        AutoReloadingWebView.resetStartupCalibrationsForTesting()
+        let started = Date()
+        fixture.load(script: resources.script, token: token, size: viewport)
+        _ = try await waitForAppearance(fixture, script: resources.script, token: token, after: 0, started: started)
+        var snapshot = try await fixture.snapshot()
+        while Date().timeIntervalSince(started) < 20 {
+            if let quality = snapshot["quality"] as? [String: Any], let factor = quality["factor"] as? Double, factor <= 1.02 { break }
+            try await Task.sleep(for: .milliseconds(10))
+            snapshot = try await fixture.snapshot()
         }
+        let quality = try XCTUnwrap(snapshot["quality"] as? [String: Any])
+        XCTAssertLessThanOrEqual(try XCTUnwrap(quality["factor"] as? Double), 1.02)
+        XCTAssertEqual(fixture.probe.documents.count, 1)
+        let result: [String: Any] = ["milliseconds":Date().timeIntervalSince(started)*1000,
+            "documents":fixture.probe.documents.count,"snapshot":snapshot]
+        print("AUTOPOIESIS_STABLE_JSON \(String(decoding: try JSONSerialization.data(withJSONObject: result,options:[.sortedKeys]),as:UTF8.self))")
+        attachJSON(result,name:"Autopoiesis stable quality")
     }
 
-    private func benchmark(useBaseline: Bool) async throws {
+    private func benchmark() async throws {
         let representatives = [
             ("Breathe You", "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd27075"),
             ("striation", "0x47a91457a3a1f700097199fd63c039c4784384ab75"),
@@ -294,12 +281,7 @@ extension ArtBlocksRenderingTests {
             let resources = try resources(id)
             let token = try XCTUnwrap(resources.tokens.first)
             let size = try size(for: token)
-            let baselineURL = URL(fileURLWithPath: #filePath)
-                .deletingLastPathComponent().deletingLastPathComponent()
-                .appendingPathComponent("build/artblocks-promotion/before/html/\(id).html")
-            let benchmarkHTML = useBaseline
-                ? try String(contentsOf: baselineURL, encoding: .utf8)
-                : RawHtmlGenerator.createHtml(script: resources.script, token: token)
+            let benchmarkHTML = RawHtmlGenerator.createHtml(script: resources.script, token: token)
             for repeatIndex in 1...2 {
                 AutoReloadingWebView.resetStartupCalibrationsForTesting()
                 let fixture = try RenderingFixture(size: size)
@@ -312,7 +294,7 @@ extension ArtBlocksRenderingTests {
                         after: previousDocuments, started: started)
                     let result: [String: Any] = [
                         "name": name, "collectionId": id, "tokenId": token.id, "repeat": repeatIndex,
-                        "phase": phase, "baselineHTML": useBaseline, "milliseconds": Date().timeIntervalSince(started) * 1000,
+                        "phase": phase, "milliseconds": Date().timeIntervalSince(started) * 1000,
                         "profile": fixture.webView.usesStableArtworkPresentation,
                         "documents": fixture.probe.documents.count - previousDocuments,
                         "pageZoom": Double(fixture.webView.pageZoom), "screenScale": Double(fixture.window.screen.scale),
@@ -699,17 +681,17 @@ extension ArtBlocksRenderingTests {
         let tokensURL = try XCTUnwrap(CollectionTokenFixtures.url(collectionId: id))
         let source = try Data(contentsOf: scriptURL), tokenData = try Data(contentsOf: tokensURL)
         return Resources(script: try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: id)),
-            tokens: try BundledTokens(data: tokenData).items.resolvingAspectRatios(default: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: id)).aspectRatio),
+            tokens: try CollectionTokens(data: tokenData).items.resolvingAspectRatios(default: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: id)).aspectRatio),
             scriptURL: scriptURL, tokensURL: tokensURL, source: source, tokenData: tokenData)
     }
 
-    private func size(for token: BundledTokens.Item) throws -> CGSize {
+    private func size(for token: CollectionTokens.Item) throws -> CGSize {
         let ratio = try XCTUnwrap(token.aspectRatio)
         return CGSize(width: 300, height: 300 / ratio.value)
     }
 
     private func waitForAppearance(
-        _ fixture: RenderingFixture, script: Script, token: BundledTokens.Item,
+        _ fixture: RenderingFixture, script: Script, token: CollectionTokens.Item,
         after previousDocuments: Int, started: Date
     ) async throws -> [String: Any] {
         let heavy = ["Cushions", "Gift of Time", "Classical Revival", "Into the Light", "Inhabitants", "Bauhaus Synthesis", "Fermented Fruit"]

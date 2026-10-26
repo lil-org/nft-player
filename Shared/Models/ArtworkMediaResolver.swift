@@ -1,6 +1,6 @@
 import Foundation
 
-nonisolated enum BundledMediaResolver {
+nonisolated enum ArtworkMediaResolver {
     enum Kind: Sendable {
         case staticImage
         case animatedImage

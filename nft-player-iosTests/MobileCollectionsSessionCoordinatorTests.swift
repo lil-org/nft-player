@@ -1042,7 +1042,7 @@ extension MobileCollectionsSessionCoordinatorTests {
             SuggestedItemsService.tokenResourceName(collectionId: $0.id) == "fidenza"
         })
         let data = try Data(contentsOf: XCTUnwrap(CollectionTokenFixtures.url(collectionId: item.id)))
-        let tokens = try BundledTokens(data: data)
+        let tokens = try CollectionTokens(data: data)
         let tokenIndex = 4
         let token = tokens.items[tokenIndex]
         let progress = MobileViewingProgress(

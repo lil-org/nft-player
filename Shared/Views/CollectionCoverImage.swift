@@ -173,7 +173,7 @@ private struct CollectionCoverPreloadModifier: ViewModifier {
         await PersistentCollectionCoverCache.shared.preload(
             assetNames: SuggestedItemsService.allItems
                 .filter { $0.hasCover != false }
-                .map(\.bundledResourceName),
+                .map(\.resourceName),
             retryFailures: retryFailures
         )
     }

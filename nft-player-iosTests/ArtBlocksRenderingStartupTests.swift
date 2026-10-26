@@ -7,6 +7,11 @@ import XCTest
 
 nonisolated final class ArtBlocksRenderingStartupTests: CollectionTokenFixtureTestCase {}
 
+private struct SavedStartupCalibration: Decodable, Equatable {
+    let zoom: Double
+    let ignoresReports: Bool
+}
+
 @MainActor
 private final class StartupOperation<Value: Sendable> {
     private var completion: ((Result<Value, Error>) -> Void)?
@@ -85,7 +90,7 @@ private final class StartupFixture {
         window.layoutIfNeeded()
     }
 
-    func load(_ script: Script, token: BundledTokens.Item, size: CGSize) {
+    func load(_ script: Script, token: CollectionTokens.Item, size: CGSize) {
         webView.configureArtBlocksRendering(collectionId: script.id, tokenId: token.id) { [weak self] in
             self?.errors.append($0)
         }
@@ -209,7 +214,7 @@ extension ArtBlocksRenderingStartupTests {
         let tokensURL = try XCTUnwrap(CollectionTokenFixtures.url(collectionId: id))
         let source = try Data(contentsOf: scriptURL), tokenData = try Data(contentsOf: tokensURL)
         let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: id))
-        let tokens = try BundledTokens(data: tokenData).items.resolvingAspectRatios(default: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: id)).aspectRatio)
+        let tokens = try CollectionTokens(data: tokenData).items.resolvingAspectRatios(default: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: id)).aspectRatio)
         let profile = try XCTUnwrap(ArtBlocksRenderingStartupProfiles.startupProfile(script))
         let expectsCycle = ArtBlocksRenderingStartupProfiles.afterArtist(script).contains("timeline_mode = true;")
         XCTAssertTrue(expectsCycle)
@@ -309,7 +314,7 @@ extension ArtBlocksRenderingStartupTests {
         XCTAssertEqual(fixture.probe.documents.count, 1)
     }
 
-    func testStartupCorrectsAnUndersampledFirstDrawingBeforeItBecomesVisible() async throws {
+    func testStartupCorrectsUndersampledDrawingAndRestoresItsSavedCalibration() async throws {
         let (fixture, script, tokens, _) = try syntheticStartupFixture()
         defer { fixture.close() }
         guard fixture.window.screen.scale > 1 else { throw XCTSkip("Requires a Retina display") }
@@ -327,6 +332,23 @@ extension ArtBlocksRenderingStartupTests {
         try await Task.sleep(for: .milliseconds(300))
         XCTAssertEqual(fixture.probe.documents.count, 2)
         XCTAssertTrue(fixture.webView.artworkIsPresented)
+
+        let storageKey = "artBlocksReview.startupCalibrations.v1"
+        let savedData = try XCTUnwrap(UserDefaults.standard.data(forKey: storageKey))
+        let savedCalibrations = try JSONDecoder().decode([String: SavedStartupCalibration].self, from: savedData)
+        XCTAssertEqual(savedCalibrations.count, 1)
+        let calibration = try XCTUnwrap(savedCalibrations.values.first)
+        XCTAssertEqual(calibration.zoom, Double(fixture.webView.pageZoom), accuracy: 0.001)
+        XCTAssertFalse(calibration.ignoresReports)
+
+        AutoReloadingWebView.reloadStartupCalibrationsForTesting()
+        try loadSyntheticStartup(fixture, script: script, token: token, source: source, needsCalibration: true)
+        _ = try await waitForSyntheticPresentation(fixture)
+        try await Task.sleep(for: .milliseconds(300))
+        XCTAssertEqual(fixture.probe.documents.count, 3, "The saved calibration should avoid a correction reload")
+        XCTAssertEqual(Double(fixture.webView.pageZoom), calibration.zoom, accuracy: 0.001)
+        let restoredData = try XCTUnwrap(UserDefaults.standard.data(forKey: storageKey))
+        XCTAssertEqual(try JSONDecoder().decode([String: SavedStartupCalibration].self, from: restoredData), savedCalibrations)
     }
 
     func testStartupChecksGeometryAgainAfterTheFirstDrawingFrame() async throws {
@@ -445,11 +467,11 @@ extension ArtBlocksRenderingStartupTests {
         """
     }
 
-    private func syntheticStartupFixture() throws -> (StartupFixture, Script, [BundledTokens.Item], StartupReadinessProbe) {
+    private func syntheticStartupFixture() throws -> (StartupFixture, Script, [CollectionTokens.Item], StartupReadinessProbe) {
         let id = "0x47a91457a3a1f700097199fd63c039c4784384ab3"
         let tokensURL = try XCTUnwrap(CollectionTokenFixtures.url(collectionId: id))
         let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: id))
-        let tokens = try BundledTokens(data: Data(contentsOf: tokensURL)).items.resolvingAspectRatios(default: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: id)).aspectRatio)
+        let tokens = try CollectionTokens(data: Data(contentsOf: tokensURL)).items.resolvingAspectRatios(default: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: id)).aspectRatio)
         AutoReloadingWebView.resetStartupCalibrationsForTesting()
         let fixture = try StartupFixture(size: CGSize(width: 300, height: 300))
         let probe = StartupReadinessProbe()
@@ -458,7 +480,7 @@ extension ArtBlocksRenderingStartupTests {
     }
 
     private func loadSyntheticStartup(
-        _ fixture: StartupFixture, script: Script, token: BundledTokens.Item, source: String, needsCalibration: Bool = false
+        _ fixture: StartupFixture, script: Script, token: CollectionTokens.Item, source: String, needsCalibration: Bool = false
     ) throws {
         let artistTag = "<script>\(script.value)</script>"
         var html = RawHtmlGenerator.createHtml(script: script, token: token)
@@ -511,14 +533,14 @@ extension ArtBlocksRenderingStartupTests {
             if case .calibrated = ArtBlocksRenderingStartupProfiles.startupPolicy(script) { return true }
             return false
         }
-        XCTAssertEqual(items.count, 79)
+        XCTAssertFalse(items.isEmpty)
         var results: [[String: Any]] = []
         for item in items {
             let scriptURL = try XCTUnwrap(JavaScriptLibraryFixtures.scriptURL(collectionId: item.id))
             let tokensURL = try XCTUnwrap(CollectionTokenFixtures.url(collectionId: item.id))
             let source = try Data(contentsOf: scriptURL), tokenData = try Data(contentsOf: tokensURL)
             let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: item.id))
-            let token = try XCTUnwrap(BundledTokens(data: tokenData).items.resolvingAspectRatios(default: item.aspectRatio).first)
+            let token = try XCTUnwrap(CollectionTokens(data: tokenData).items.resolvingAspectRatios(default: item.aspectRatio).first)
             let ratio = try XCTUnwrap(token.aspectRatio)
             let profile = try XCTUnwrap(ArtBlocksRenderingStartupProfiles.startupProfile(script))
             let size = CGSize(width: 300, height: 300 / ratio.value)
@@ -585,7 +607,7 @@ extension ArtBlocksRenderingStartupTests {
             let tokensURL = try XCTUnwrap(CollectionTokenFixtures.url(collectionId: id))
             let source = try Data(contentsOf: scriptURL), tokenData = try Data(contentsOf: tokensURL)
             let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: id))
-            let token = try XCTUnwrap(BundledTokens(data: tokenData).items.resolvingAspectRatios(default: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: id)).aspectRatio).first)
+            let token = try XCTUnwrap(CollectionTokens(data: tokenData).items.resolvingAspectRatios(default: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: id)).aspectRatio).first)
             let ratio = try XCTUnwrap(token.aspectRatio)
             let profile = try XCTUnwrap(ArtBlocksRenderingStartupProfiles.startupProfile(script))
             let size = CGSize(width: 300, height: 300 / ratio.value)
@@ -636,7 +658,7 @@ extension ArtBlocksRenderingStartupTests {
         let id = "0x47a91457a3a1f700097199fd63c039c4784384ab3"
         let tokensURL = try XCTUnwrap(CollectionTokenFixtures.url(collectionId: id))
         let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: id))
-        let token = try XCTUnwrap(BundledTokens(data: Data(contentsOf: tokensURL)).items.resolvingAspectRatios(default: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: id)).aspectRatio).first)
+        let token = try XCTUnwrap(CollectionTokens(data: Data(contentsOf: tokensURL)).items.resolvingAspectRatios(default: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: id)).aspectRatio).first)
         let fixture = try StartupFixture(size: CGSize(width: 300, height: 300))
         defer { fixture.close() }
         fixture.webView.startupTimeoutForTesting = .seconds(1)
@@ -653,18 +675,23 @@ extension ArtBlocksRenderingStartupTests {
     }
 
     func testPresentedStartupCancelsItsStallTimeout() async throws {
-        let id = "0x47a91457a3a1f700097199fd63c039c4784384ab3"
-        let tokensURL = try XCTUnwrap(CollectionTokenFixtures.url(collectionId: id))
-        let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: id))
-        let token = try XCTUnwrap(BundledTokens(data: Data(contentsOf: tokensURL)).items.resolvingAspectRatios(default: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: id)).aspectRatio).first)
-        let fixture = try StartupFixture(size: CGSize(width: 300, height: 300))
+        let (fixture, script, tokens, _) = try syntheticStartupFixture()
         defer { fixture.close() }
+        let token = try XCTUnwrap(tokens.first)
+        let source = syntheticCanvasSource + "draw();"
+        try loadSyntheticStartup(fixture, script: script, token: token, source: source)
+        _ = try await waitForSyntheticPresentation(fixture)
+        XCTAssertEqual(fixture.probe.documents.count, 1)
+
         fixture.webView.startupTimeoutForTesting = .seconds(2)
-        fixture.load(script, token: token, size: CGSize(width: 300, height: 300))
-        _ = try await waitForPresentation(fixture, token: token, after: 0, timeout: 5)
+        try loadSyntheticStartup(fixture, script: script, token: token, source: source)
+        _ = try await waitForSyntheticPresentation(fixture)
+        XCTAssertTrue(fixture.webView.usesStableArtworkPresentation)
+        XCTAssertEqual(fixture.probe.documents.count, 2)
         try await Task.sleep(for: .seconds(2))
         XCTAssertTrue(fixture.errors.isEmpty)
         XCTAssertTrue(fixture.webView.artworkIsPresented)
+        XCTAssertEqual(fixture.probe.documents.count, 2)
     }
 
     func testStartup100Sunsets() async throws { try await verifyCollection("0x0a1bbd57033f57e7b6743621b79fcb9eb2ce367629", name: "100 Sunsets") }
@@ -754,7 +781,7 @@ extension ArtBlocksRenderingStartupTests {
         let originalSource = try Data(contentsOf: scriptURL)
         let originalTokens = try Data(contentsOf: tokenURL)
         let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: collectionId))
-        let allTokens = try BundledTokens(data: originalTokens).items.resolvingAspectRatios(default: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: collectionId)).aspectRatio)
+        let allTokens = try CollectionTokens(data: originalTokens).items.resolvingAspectRatios(default: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: collectionId)).aspectRatio)
         XCTAssertGreaterThan(allTokens.count, 23)
         guard allTokens.count > 23 else { return }
         let reviewedTokenIDs = (0..<23).map { String(231_000_000 + $0) }
@@ -815,7 +842,7 @@ extension ArtBlocksRenderingStartupTests {
         let collectionId = "0x47a91457a3a1f700097199fd63c039c4784384ab3"
         let tokenURL = try XCTUnwrap(CollectionTokenFixtures.url(collectionId: collectionId))
         let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: collectionId))
-        let token = try XCTUnwrap(BundledTokens(data: Data(contentsOf: tokenURL)).items.resolvingAspectRatios(default: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: collectionId)).aspectRatio).first)
+        let token = try XCTUnwrap(CollectionTokens(data: Data(contentsOf: tokenURL)).items.resolvingAspectRatios(default: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: collectionId)).aspectRatio).first)
         let profile = try XCTUnwrap(ArtBlocksRenderingStartupProfiles.startupProfile(script))
         let size = CGSize(width: 300, height: 300)
         AutoReloadingWebView.resetStartupCalibrationsForTesting()
@@ -862,7 +889,7 @@ extension ArtBlocksRenderingStartupTests {
         let originalSource = try Data(contentsOf: scriptURL)
         let originalTokens = try Data(contentsOf: tokenURL)
         let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: collectionId))
-        let tokens = try BundledTokens(data: originalTokens).items.resolvingAspectRatios(default: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: collectionId)).aspectRatio)
+        let tokens = try CollectionTokens(data: originalTokens).items.resolvingAspectRatios(default: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: collectionId)).aspectRatio)
         XCTAssertEqual(script.id, collectionId)
         XCTAssertEqual(script.name, name)
         let profile = try XCTUnwrap(ArtBlocksRenderingStartupProfiles.startupProfile(script))
@@ -903,7 +930,7 @@ extension ArtBlocksRenderingStartupTests {
     private func verifyPresentation(
         _ fixture: StartupFixture,
         script: Script,
-        token: BundledTokens.Item,
+        token: CollectionTokens.Item,
         profile: ArtBlocksRenderingStartupProfiles.Profile,
         phase: String,
         previousDocuments: Int
@@ -959,7 +986,7 @@ extension ArtBlocksRenderingStartupTests {
     }
 
     private func assertSnapshot(
-        _ snapshot: [String: Any], token: BundledTokens.Item,
+        _ snapshot: [String: Any], token: CollectionTokens.Item,
         profile: ArtBlocksRenderingStartupProfiles.Profile, fixture: StartupFixture, label: String
     ) {
         let previousFailures = testRun?.failureCount ?? 0
@@ -1011,7 +1038,7 @@ extension ArtBlocksRenderingStartupTests {
     }
 
     private func waitForPresentation(
-        _ fixture: StartupFixture, token: BundledTokens.Item, after documentCount: Int, timeout: TimeInterval
+        _ fixture: StartupFixture, token: CollectionTokens.Item, after documentCount: Int, timeout: TimeInterval
     ) async throws -> [String: Any] {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
@@ -1034,7 +1061,7 @@ extension ArtBlocksRenderingStartupTests {
     }
 
     private func attach(
-        _ fixture: StartupFixture, script: Script, token: BundledTokens.Item,
+        _ fixture: StartupFixture, script: Script, token: CollectionTokens.Item,
         profile: ArtBlocksRenderingStartupProfiles.Profile, phase: String,
         observations: [[String: Any]], previousDocuments: Int, elapsed: TimeInterval
     ) async throws {

@@ -8,6 +8,39 @@ import suggestedItems from "../tools/suggested_items.js";
 const { assertValidInternalSlugs, INTERNAL_SLUG_PATTERN, MAX_INTERNAL_SLUG_LENGTH } = suggestedItems;
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const suggestedItemsDirectory = path.join(repositoryRoot, "Suggested Items");
+const stringFields = ["address", "internal_slug", "collectionId", "abId", "name", "urlPrefix", "standardThumbsBaseURL"];
+const booleanFields = ["hasMid", "standardThumbsPathsAvailable", "iosOnly", "generativeOnly"];
+const widgetFields = ["address", "internal_slug", "collectionId", "abId", "name", "urlPrefix", "hasMid",
+  "standardThumbsPathsAvailable", "standardThumbsBaseURL", "iosOnly", "generativeOnly"];
+
+function widgetMetadata(item) {
+  for (const key of ["address", "internal_slug", "name"]) {
+    if (typeof item[key] !== "string" || /^[\p{White_Space}\u200B]*$/u.test(item[key])) {
+      throw new TypeError(`${item.internal_slug}: ${key} must be a non-empty string.`);
+    }
+  }
+  for (const [fields, type] of [[stringFields, "string"], [booleanFields, "boolean"]]) {
+    for (const key of fields) {
+      if (item[key] != null && typeof item[key] !== type) {
+        throw new TypeError(`${item.internal_slug}: ${key} must be a ${type}.`);
+      }
+    }
+  }
+  const result = Object.fromEntries(widgetFields.filter((key) => Object.hasOwn(item, key))
+    .map((key) => [key, item[key]]));
+  if (Object.hasOwn(item, "script")) {
+    if (item.script == null) {
+      result.script = null;
+    } else {
+      if (typeof item.script !== "object" || Array.isArray(item.script)
+          || typeof item.script.kind !== "string" || item.script.kind.length === 0) {
+        throw new TypeError(`${item.internal_slug}: script must contain a non-empty kind string.`);
+      }
+      result.script = { kind: item.script.kind };
+    }
+  }
+  return result;
+}
 
 export async function generateWidgetResources(directory, { check = false } = {}) {
   const eligibleSlugs = JSON.parse(await fs.readFile(path.join(directory, "widget-eligible-collections.json"), "utf8"));
@@ -25,7 +58,7 @@ export async function generateWidgetResources(directory, { check = false } = {})
   const selectedItems = eligibleSlugs.map((slug) => {
     const item = itemsBySlug.get(slug);
     if (!item) throw new Error(`Missing collection slug in items.json: ${slug}`);
-    return item;
+    return widgetMetadata(item);
   });
   const outputPath = path.join(directory, "widget-items.json");
   const expectedContent = `${JSON.stringify(selectedItems, null, 2)}\n`;

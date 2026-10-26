@@ -45,12 +45,14 @@ class AutoReloadingWebView: WKWebView, WKNavigationDelegate {
         let ignoresReports: Bool
     }
     private static let startupCalibrationStorageKey = "artBlocksReview.startupCalibrations.v1"
-    private static var startupCalibrations: [String: StartupCalibration] = {
+    private static var startupCalibrations = loadStartupCalibrations()
+
+    private static func loadStartupCalibrations() -> [String: StartupCalibration] {
         guard let data = UserDefaults.standard.data(forKey: startupCalibrationStorageKey),
               let values = try? JSONDecoder().decode([String: StartupCalibration].self, from: data),
               values.count <= 256 else { return [:] }
         return values.filter { $0.value.zoom.isFinite && $0.value.zoom > 0 && $0.value.zoom <= 1 }
-    }()
+    }
     private var artworkCollectionId: String?
     private var artworkTokenId: String?
     private var artworkErrorHandler: ((String) -> Void)?
@@ -87,6 +89,10 @@ class AutoReloadingWebView: WKWebView, WKNavigationDelegate {
     static func resetStartupCalibrationsForTesting() {
         startupCalibrations = [:]
         UserDefaults.standard.removeObject(forKey: startupCalibrationStorageKey)
+    }
+
+    static func reloadStartupCalibrationsForTesting() {
+        startupCalibrations = loadStartupCalibrations()
     }
 #endif
     private var artworkGeneration: String?
@@ -572,17 +578,7 @@ class AutoReloadingWebView: WKWebView, WKNavigationDelegate {
 
     private func startupCalibration() -> StartupCalibration? {
         guard let key = startupCalibrationKey else { return nil }
-        if let calibration = Self.startupCalibrations[key] { return calibration }
-        guard let collection = artworkCollectionId,
-              let legacyID = TokenGenerator.legacyArtBlocksCollectionId(collectionId: collection),
-              let legacyKey = startupCalibrationKey(collectionId: legacyID),
-              let calibration = Self.startupCalibrations[legacyKey] else { return nil }
-        Self.startupCalibrations.removeValue(forKey: legacyKey)
-        Self.startupCalibrations[key] = calibration
-        if let data = try? JSONEncoder().encode(Self.startupCalibrations) {
-            UserDefaults.standard.set(data, forKey: Self.startupCalibrationStorageKey)
-        }
-        return calibration
+        return Self.startupCalibrations[key]
     }
 
     private func saveStartupCalibration() {

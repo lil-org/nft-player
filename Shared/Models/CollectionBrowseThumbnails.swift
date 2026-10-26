@@ -92,7 +92,7 @@ nonisolated extension CollectionCatalog {
         tokenIndex: Int
     ) -> CollectionCatalogDownloadableMediaDescriptor? {
         guard SuggestedItemsService.item(id: specificCollectionId)?.hasThumbnails != false else { return nil }
-        if let descriptor = bundledGenerativeThumbnailDescriptor(
+        if let descriptor = generativeThumbnailDescriptor(
             specificCollectionId: specificCollectionId,
             tokenIndex: tokenIndex
         ) {
@@ -329,11 +329,11 @@ nonisolated extension CollectionCatalog {
 #endif
     }
 
-    private static func bundledGenerativeThumbnailDescriptor(
+    private static func generativeThumbnailDescriptor(
         specificCollectionId: String,
         tokenIndex: Int
     ) -> CollectionCatalogDownloadableMediaDescriptor? {
-        guard let token = TokenGenerator.bundledWebGenerativeToken(
+        guard let token = TokenGenerator.webGenerativeToken(
                 specificCollectionId: specificCollectionId,
                 tokenIndex: tokenIndex
               ),

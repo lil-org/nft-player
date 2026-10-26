@@ -66,7 +66,7 @@ extension ArtBlocksLocalGenerationTests {
             XCTAssertNil(item.tokenCount, project.name)
             XCTAssertFalse(item.isDownloadableCollection, project.name)
             XCTAssertFalse(CollectionCatalog.isDownloadableCollection(specificCollectionId: project.id))
-            XCTAssertTrue(TokenGenerator.isBundledWebGenerativeCollection(id: project.id), project.name)
+            XCTAssertTrue(TokenGenerator.isWebGenerativeCollection(id: project.id), project.name)
             XCTAssertTrue(CollectionCatalog.canOpenCollection(specificCollectionId: project.id))
             XCTAssertEqual(CollectionCatalog.allItems.contains { $0.id == project.id }, true, project.name)
             XCTAssertEqual(script.id, project.id)

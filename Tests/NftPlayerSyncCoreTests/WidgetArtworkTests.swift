@@ -29,17 +29,29 @@ final class WidgetArtworkTests: XCTestCase {
         ])
         XCTAssertEqual(collection.id, "contract123")
         XCTAssertEqual(collection.name, "Artwork")
-        XCTAssertEqual(collection.bundledResourceName, "artwork")
+        XCTAssertEqual(collection.resourceName, "artwork")
 
-        let fallback = try self.collection([
+        let otherCollection = try self.collection([
             "address": "contract",
             "collectionId": "42",
-            "name": "  ",
-            "internal_slug": "",
         ])
-        XCTAssertEqual(fallback.id, "contract42")
-        XCTAssertEqual(fallback.name, "contract42")
-        XCTAssertEqual(fallback.bundledResourceName, "contract42")
+        XCTAssertEqual(otherCollection.id, "contract42")
+    }
+
+    func testCollectionRequiresNameAndResourceSlug() throws {
+        for field in ["name", "internal_slug"] {
+            for value: Any in [NSNull(), "", " \n "] {
+                XCTAssertThrowsError(try collection([field: value]), "\(field): \(value)")
+            }
+            var fields: [String: Any] = [
+                "address": "contract", "name": "Artwork", "internal_slug": "artwork",
+            ]
+            fields.removeValue(forKey: field)
+            XCTAssertThrowsError(try JSONDecoder().decode(
+                WidgetCollection.self,
+                from: JSONSerialization.data(withJSONObject: fields)
+            ), field)
+        }
     }
 
     func testCollectionAvailabilityMatchesHostPlatform() throws {
@@ -282,8 +294,8 @@ final class WidgetArtworkTests: XCTestCase {
             XCTAssertNil(WidgetTokenItem(id: "123000007", urlSuffix: nil, sourceIndex: index)
                 .staticImageReference(collection: collection))
         }
-        let invalidSlugs: [Any] = [
-            NSNull(), "", "../artwork", "UPPERCASE", "art-work", "_artwork", "art__work",
+        let invalidSlugs = [
+            "../artwork", "UPPERCASE", "art-work", "_artwork", "art__work",
             String(repeating: "a", count: 121),
         ]
         for slug in invalidSlugs {
@@ -372,6 +384,8 @@ final class WidgetArtworkTests: XCTestCase {
     private func collection(_ fields: [String: Any] = [:]) throws -> WidgetCollection {
         var values: [String: Any] = [
             "address": "collection",
+            "name": "Artwork",
+            "internal_slug": "artwork",
             "chain": "solana",
             "urlPrefix": "https://cdn.lil.org/artwork/",
         ]

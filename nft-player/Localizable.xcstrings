@@ -4306,9 +4306,6 @@
     "Large grid: 1 column in portrait, 2 in landscape" : {
       "comment" : "The accessibility value for the collection browser grid button when activating it will switch to the large mode."
     },
-    "Loading collection…" : {
-
-    },
     "Mail" : {
       "comment" : "2512422763239232452",
       "localizations" : {

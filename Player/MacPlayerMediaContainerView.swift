@@ -37,7 +37,7 @@ final class MacPlayerMediaContainerView: NSView {
         case viewport
         case staticImage(CGSize)
         /// A web page composed at a fixed aspect ratio and letterboxed, rather than
-        /// stretched to the viewport. Bundled generative pieces are authored for a
+        /// stretched to the viewport. Web generative pieces are authored for a
         /// specific shape, so this is how iOS presents them.
         case fittedWebContent(CGSize)
     }
@@ -286,7 +286,7 @@ final class MacPlayerMediaContainerView: NSView {
             }
             renderWebContent(
                 token.html,
-                layout: bundledGenerativeWebContentLayout(for: token, context: tokenContext)
+                layout: webGenerativeWebContentLayout(for: token, context: tokenContext)
             )
             return
         }
@@ -929,17 +929,17 @@ final class MacPlayerMediaContainerView: NSView {
         displayWebHTML(html)
     }
 
-    /// Bundled generative pieces are authored for a specific aspect ratio; iOS
+    /// Web generative pieces are authored for a specific aspect ratio; iOS
     /// letterboxes them rather than stretching them to the viewport. Everything else —
     /// including the fallback HTML a downloadable token falls back to — fills the
     /// viewport as before.
-    private func bundledGenerativeWebContentLayout(
+    private func webGenerativeWebContentLayout(
         for token: GeneratedToken,
         context: PlayerTokenContext?
     ) -> ZoomContentLayout {
         guard let context,
               token.nativeMetalCardRenderKind == nil,
-              TokenGenerator.isBundledWebGenerativeCollection(id: context.collectionId),
+              TokenGenerator.isWebGenerativeCollection(id: context.collectionId),
               let aspectRatio = CollectionCatalog.collectionBrowseThumbnailDescriptor(
                 specificCollectionId: context.collectionId,
                 tokenIndex: context.tokenIndex

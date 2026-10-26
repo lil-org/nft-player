@@ -60,7 +60,7 @@ nonisolated enum ArtworkContentResolver {
                 collectionId: item.id, allowsDownloads: allowsDownloads
             )
             guard let tokenIndex = TokenGenerator.tokenIndex(specificCollectionId: item.id, tokenId: request.tokenId),
-                  let token = TokenGenerator.bundledWebGenerativeToken(specificCollectionId: item.id, tokenIndex: tokenIndex) else {
+                  let token = TokenGenerator.webGenerativeToken(specificCollectionId: item.id, tokenIndex: tokenIndex) else {
                 throw Failure.unavailableToken
             }
             let script = try await script(collectionId: item.id, cache: cache, allowsDownloads: allowsDownloads)

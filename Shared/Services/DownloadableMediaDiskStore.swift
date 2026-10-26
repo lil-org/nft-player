@@ -269,19 +269,6 @@ nonisolated private final class DownloadableMediaDiskProtectionGate:
     private var pathReferenceCounts = [String: Int]()
     private var revision: UInt64 = 0
 
-    func update(_ paths: Set<String>, revision: UInt64) -> Bool {
-        lock.withLock {
-            guard revision >= self.revision else { return false }
-            self.revision = revision
-            guard self.paths != paths else { return false }
-            self.paths = paths
-            pathReferenceCounts = Dictionary(
-                uniqueKeysWithValues: paths.map { ($0, 1) }
-            )
-            return true
-        }
-    }
-
     func applyDelta(
         adding addedPaths: Set<String>,
         removing removedPaths: Set<String>,
@@ -600,26 +587,12 @@ actor DownloadableMediaDiskStore {
         try? FileManager.default.removeItem(at: url)
     }
 
-    func makeRemovalToken() -> DownloadableMediaFileRemovalToken {
-        _ = prepareIfNeeded()
-        return makeRemovalTokenAfterPreparation()
-    }
-
     func cleanupRemovalTombstones() {
         let preparation = prepareIfNeeded()
         if let tombstoneDirectoryURL = preparation.fileRemovalTombstoneDirectoryURL {
             removeContents(of: tombstoneDirectoryURL)
         }
         removeFallbackTombstones(at: layout.cacheRoot)
-    }
-
-    nonisolated func setProtectedPaths(
-        _ paths: Set<String>,
-        revision: UInt64
-    ) {
-        if protectionGate.update(paths, revision: revision) {
-            pruneGate.cancel()
-        }
     }
 
     nonisolated func applyProtectedPathDelta(
@@ -1197,12 +1170,6 @@ actor DownloadableMediaDiskPruner {
         bytesAddedSinceEstimate = 0
     }
 
-    func cancelScheduledPrune() async {
-        scheduleGeneration &+= 1
-        pendingRequest = nil
-        store.cancelPrune()
-    }
-
     func recordWrite(
         cacheBytes: Int64,
         protecting additionalProtectedPaths: Set<String>
@@ -1319,27 +1286,6 @@ actor DownloadableMediaDiskPruner {
             bytesAddedSinceEstimate = 0
         } else if result.didRemoveItem {
             invalidateEstimatedState()
-        }
-        return result
-    }
-
-    func pruneImmediately(
-        protecting additionalProtectedPaths: Set<String>
-    ) async -> DownloadableMediaDiskPruneResult {
-        guard !isRunning else { return skippedResult() }
-        scheduleGeneration &+= 1
-        let generation = scheduleGeneration
-        isRunning = true
-        let result = await performPruneWithMutationRetry(
-            additionalProtectedPaths: additionalProtectedPaths,
-            cancellationGeneration: generation,
-            cancellationEpoch: store.pruneCancellationEpoch()
-        )
-        isRunning = false
-        if result.wasCurrent {
-            estimatedCacheBytes = result.cacheBytesAfterPrune
-            estimatedAvailableDiskBytes = result.availableDiskBytesAfterPrune
-            bytesAddedSinceEstimate = 0
         }
         return result
     }
